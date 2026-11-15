@@ -5,9 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <title>סוכן המשרות</title>
-<script src="config.js?v=2"></script>
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0B6E69">
+<script src="config.js?v=3"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="store.js?v=2"></script>
+<script src="store.js?v=3"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
@@ -296,6 +300,9 @@ details.tr p{margin:6px 0 0;white-space:pre-wrap}
 .loginbox h1{margin:0;font-size:26px}.loginbox p{margin:0;color:var(--muted)}
 .loginbox label{display:grid;gap:4px;font-weight:600;font-size:15px}
 .loginbox input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:var(--bg);color:var(--ink)}
+.brand{display:flex;align-items:center;gap:12px}
+.brand .logo{width:clamp(38px,6vw,48px);height:clamp(38px,6vw,48px);flex:none;color:var(--accent)}
+.loginbox .brand .logo{width:40px;height:40px}
 .notetxt{flex:1 1 100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--muted);font-size:15px}
 .job.fb-not .notetxt{background:var(--bad-soft);border-color:transparent;color:var(--ink)}
 /* ---- settings ---- */
@@ -315,7 +322,7 @@ details.tr p{margin:6px 0 0;white-space:pre-wrap}
 <body>
 <div id="login" hidden>
   <form id="loginForm" class="loginbox">
-    <h1>סוכן המשרות</h1>
+    <div class="brand"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="currentColor"/><circle cx="32" cy="32" r="19" fill="none" stroke="#fff" stroke-width="3" opacity=".35"/><path d="M41 23 35 35 23 41 29 29Z" fill="#fff"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg><h1>סוכן המשרות</h1></div>
     <p>כניסה לחשבון שלך</p>
     <label>מייל<input type="email" id="loginEmail" autocomplete="username" required></label>
     <label>סיסמה<input type="password" id="loginPass" autocomplete="current-password" required></label>
@@ -335,7 +342,7 @@ details.tr p{margin:6px 0 0;white-space:pre-wrap}
 
   <section class="view" id="viewHome">
   <header>
-    <h1 id="siteTitle">סוכן המשרות</h1>
+    <div class="brand"><svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="currentColor"/><circle cx="32" cy="32" r="19" fill="none" stroke="#fff" stroke-width="3" opacity=".35"/><path d="M41 23 35 35 23 41 29 29Z" fill="#fff"/><circle cx="32" cy="32" r="3" fill="currentColor"/></svg><h1 id="siteTitle">סוכן המשרות</h1></div>
         <p>המשרות שהסוכן מצא בכל בוקר. סמני רלוונטי או לא רלוונטי, והסריקה הבאה תלמד מזה.</p>
     <div class="meta" id="lastRun">טוען נתונים…</div>
   </header>
