@@ -9,11 +9,11 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0B6E69">
-<script src="config.js?v=3"></script>
+<script src="config.js?v=4"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
-<script src="store.js?v=3"></script>
+<script src="store.js?v=4"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&display=swap">
 <style>
 /* Layout: a single reading column of job "case files", criteria panel above, sticky filter bar. RTL. */
 :root{
@@ -22,7 +22,7 @@
   --good:#1F7A3E; --good-soft:#DFF1E5; --bad:#A3342B; --bad-soft:#F6E1DE; --warn:#9A6A00; --warn-soft:#F7EDD3;
   --f-display:"Secular One","Assistant",system-ui,sans-serif;
   --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",sans-serif;
-  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --f-mono:"Assistant",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#0E1719; --surface:#152225; --ink:#E3ECEE; --muted:#93A6AB; --line:#26383C;
@@ -303,6 +303,7 @@ details.tr p{margin:6px 0 0;white-space:pre-wrap}
 .brand{display:flex;align-items:center;gap:12px}
 .brand .logo{width:clamp(38px,6vw,48px);height:clamp(38px,6vw,48px);flex:none;color:var(--accent)}
 .loginbox .brand .logo{width:40px;height:40px}
+*{font-variant-numeric:tabular-nums}
 .notetxt{flex:1 1 100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--muted);font-size:15px}
 .job.fb-not .notetxt{background:var(--bad-soft);border-color:transparent;color:var(--ink)}
 /* ---- settings ---- */
@@ -821,7 +822,7 @@ details.tr p{margin:6px 0 0;white-space:pre-wrap}
   renderSrc();
 
   // ---- views ----
-  function setView(v,opts){ opts=opts||{};
+  function setView(v,opts){ opts=opts||{}; try{ catSel=null; }catch(_){}
     document.querySelectorAll(".nav [data-view]").forEach(b=>{ if(b.dataset.view===v) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
     $("#viewHome").hidden=v!=="home"; $("#viewJobs").hidden=v!=="jobs"; $("#viewSettings").hidden=v!=="settings"; $("#viewPath").hidden=v!=="path";
     if(opts.filter){ filter=opts.filter; document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-pressed",String(t.dataset.f===filter))); $("#subBar").hidden=filter!=="relevant"; }
@@ -944,6 +945,7 @@ details.tr p{margin:6px 0 0;white-space:pre-wrap}
 
   document.querySelector(".bar").addEventListener("click",e=>{
     const b=e.target.closest(".tab"); if(!b) return;
+    try{ catSel=null; }catch(_){}
     filter=b.dataset.f; document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-pressed",String(t===b))); $("#subBar").hidden=filter!=="relevant"; render();
   });
   $("#subBar").addEventListener("click",e=>{
