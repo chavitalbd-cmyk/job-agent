@@ -3,6 +3,6 @@
  * your data is protected by Row Level Security + your login, not by hiding these.
  * NEVER put the "service_role" key here. */
 window.JOB_AGENT_CONFIG = {
-  supabaseUrl: "",      // e.g. "https://abcd1234.supabase.co"
-  supabaseAnonKey: ""   // Project Settings → API → "anon public" key
+  supabaseUrl: "https://hoxrrkuncycsopmwnqso.supabase.co",
+  supabaseAnonKey: "sb_publishable_Q0i3Kg6vijIqo4lmIugKgg_u8LqOmP4"  // publishable (public) key
 };
