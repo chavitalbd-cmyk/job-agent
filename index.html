@@ -1,0 +1,1095 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>סוכן המשרות</title>
+<script src="config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="store.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;700&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: a single reading column of job "case files", criteria panel above, sticky filter bar. RTL. */
+:root{
+  --bg:#F2F5F6; --surface:#FFFFFF; --ink:#13252B; --muted:#5A6B71; --line:#D9E1E4;
+  --accent:#0B6E69; --accent-soft:#DCEFED;
+  --good:#1F7A3E; --good-soft:#DFF1E5; --bad:#A3342B; --bad-soft:#F6E1DE; --warn:#9A6A00; --warn-soft:#F7EDD3;
+  --f-display:"Secular One","Assistant",system-ui,sans-serif;
+  --f-body:"Assistant",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0E1719; --surface:#152225; --ink:#E3ECEE; --muted:#93A6AB; --line:#26383C;
+  --accent:#4EC2B9; --accent-soft:#163A38;
+  --good:#6BCB8B; --good-soft:#173524; --bad:#EE8B80; --bad-soft:#3D1E1B; --warn:#E3B54A; --warn-soft:#3A2F12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1719; --surface:#152225; --ink:#E3ECEE; --muted:#93A6AB; --line:#26383C;
+  --accent:#4EC2B9; --accent-soft:#163A38;
+  --good:#6BCB8B; --good-soft:#173524; --bad:#EE8B80; --bad-soft:#3D1E1B; --warn:#E3B54A; --warn-soft:#3A2F12; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;direction:rtl}
+.wrap{max-width:820px;margin:0 auto;padding-block:28px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:22px}
+header h1{font-family:var(--f-display);font-weight:400;font-size:clamp(28px,5vw,38px);line-height:1.15;margin:0;text-wrap:balance}
+header p{margin:6px 0 0;color:var(--muted)}
+.meta{font-family:var(--f-mono);font-size:12.5px;color:var(--muted);letter-spacing:.02em}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+.panel h2{font-family:var(--f-display);font-weight:400;font-size:20px;margin:0}
+details.panel>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px}
+details.panel>summary::-webkit-details-marker{display:none}
+details.panel>summary::after{content:"+";font-family:var(--f-mono);color:var(--accent);font-size:20px}
+details.panel[open]>summary::after{content:"–"}
+.crit{display:grid;gap:18px;margin-top:16px}
+.crit label{font-weight:700;font-size:14px;display:block;margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--accent-soft);color:var(--ink);font-size:14px}
+.chip.x{background:var(--bad-soft)}
+.chip button{border:0;background:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0;line-height:1}
+.addrow{display:flex;gap:8px;margin-top:8px}
+input[type=text],textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+textarea{min-height:84px;resize:vertical}
+input:focus-visible,textarea:focus-visible,button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn{font:inherit;font-weight:600;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:6px 14px;cursor:pointer;white-space:nowrap}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.hint{font-size:13px;color:var(--muted);margin:4px 0 0}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);padding-block:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-bottom:1px solid var(--line)}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.tab{font:inherit;border:1px solid var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:4px 14px;cursor:pointer}
+.tab[aria-pressed="true"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.bar.sub{margin-top:-6px;align-items:center}
+.bar.sub[hidden]{display:none!important}
+.sublbl{font-size:13px;color:var(--muted);font-weight:700}
+.stab{font:inherit;font-size:14px;border:1px dashed var(--line);background:transparent;color:var(--muted);border-radius:999px;padding:2px 12px;cursor:pointer}
+.stab[aria-pressed="true"]{border-style:solid;border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.stab .n{font-family:var(--f-mono);font-size:12px;margin-inline-start:4px}
+.tab .n{font-family:var(--f-mono);font-size:12px;margin-inline-start:4px}
+.list{display:flex;flex-direction:column;gap:14px}
+.job{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;display:grid;gap:10px;border-inline-start:4px solid var(--line)}
+.job.s5,.job.s4{border-inline-start-color:var(--accent)}
+.job.s3{border-inline-start-color:var(--warn)}
+.job.fb-relevant{background:linear-gradient(var(--good-soft),var(--good-soft)) top/100% 4px no-repeat,var(--surface)}
+.job.fb-not{opacity:.62}
+.job{transition:opacity .45s ease,transform .45s ease,max-height .45s ease .15s,padding .45s ease .15s,margin .45s ease .15s}
+.job.flash{box-shadow:0 0 0 1.5px var(--good)}
+.job.leaving{opacity:0;transform:scale(.97);max-height:0!important;padding-block:0;margin-block:-7px;overflow:hidden;border-width:0}
+.list.locked .fb{pointer-events:none}
+.pick{font-size:14px;font-weight:700;padding:3px 10px;border-radius:999px}
+.pick.relevant{background:var(--good-soft);color:var(--good)}
+.pick.not{background:var(--bad-soft);color:var(--bad)}
+.pick.applied{background:var(--accent-soft);color:var(--accent)}
+@media (prefers-reduced-motion:reduce){.job{transition:none}}
+#cvToast{position:fixed;bottom:20px;left:50%;transform:translate(-50%,12px);z-index:20;display:flex;flex-direction:column;align-items:center;gap:0;background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn);border-radius:10px;padding:6px 14px;font-size:14px;line-height:1.4;box-shadow:0 4px 14px rgba(0,0,0,.12);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;max-width:calc(100vw - 32px);text-align:center}
+#cvToast b{font-size:13px}
+#cvToast.show{opacity:1;transform:translate(-50%,0)}
+.warow{display:grid;grid-template-columns:1fr auto;gap:14px;align-items:end}
+@media (max-width:560px){.warow{grid-template-columns:1fr}}
+.wchip{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:3px 12px;cursor:pointer}
+.wchip.on{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.field.asks,.field.cvtips{border-radius:8px;padding:8px 12px}
+.field.asks{background:var(--accent-soft)}
+.field.cvtips{background:var(--warn-soft)}
+.field.asks ul,.field.cvtips ul{margin:4px 0 0;padding-inline-start:20px;display:grid;gap:2px}
+.field.role p{font-weight:600}
+.field.reqs{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 12px}
+.field.reqs ul{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:3px}
+.field.reqs li{display:flex;gap:8px;align-items:baseline}
+.field.reqs .ic{font-weight:800;width:16px;flex:none;text-align:center}
+.rq-yes .ic{color:var(--good)} .rq-no .ic{color:var(--bad)} .rq-partial .ic{color:var(--warn)}
+.reasonbox{border:1px solid var(--bad);background:var(--bad-soft);border-radius:10px;padding:12px;display:grid;gap:8px}
+.reasonbox .chips{display:flex;flex-wrap:wrap;gap:6px}
+.reasonbox input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--surface);color:var(--ink)}
+.reasonbox .row{display:flex;gap:8px;flex-wrap:wrap}
+a.fb.people{text-decoration:none;display:inline-flex;align-items:center;padding:4px 8px}
+.li-ic{width:18px;height:18px;flex:none;vertical-align:-4px}
+.field.contacts ul{list-style:none;padding:0;margin:4px 0 0;display:grid;gap:4px}
+.field.contacts a{text-decoration:none;color:inherit;font-weight:600;display:inline-flex;gap:6px;align-items:center}
+.field.contacts .r{color:var(--muted,#666);font-size:.92em}
+.modes{display:flex;gap:6px;flex-wrap:wrap}
+#n-src{margin-inline-start:8px;font-size:.75em;color:var(--muted,#666);font-weight:600}
+.srcgrp{margin:6px 0 12px}.srcgrp h3{font-size:.95rem;margin:0 0 6px}
+.srcgrp ul{margin:0;padding-inline-start:18px;display:grid;gap:3px}
+.srcgrp a{color:inherit}.srcgrp .pend{color:#a15c00}
+#addPanel input,#addPanel textarea{width:100%;box-sizing:border-box;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface);color:var(--ink)}
+ul.inbox{margin:4px 0 0;padding-inline-start:20px;font-size:14px;color:var(--muted)}
+.archnote{padding:10px!important}
+.viewlink{display:inline-block;margin-top:6px;font-size:14px;font-weight:600;color:var(--accent)}
+.stage{font:inherit;font-weight:600;font-size:14px;border:1px solid var(--accent);color:var(--accent);background:var(--surface);border-radius:8px;padding:4px 8px;cursor:pointer}
+.stage.st-contacted{border-color:var(--warn);color:var(--warn);background:var(--warn-soft)}
+.stage.st-interview{border-color:var(--accent);color:var(--surface);background:var(--accent)}
+.stage.st-hired{border-color:var(--good);color:var(--surface);background:var(--good)}
+.stage.st-rejected{border-color:var(--bad);color:var(--bad);background:var(--bad-soft)}
+.tag.stg{font-weight:700}
+.tag.stg.st-contacted{background:var(--warn-soft);color:var(--warn);border-color:var(--warn)}
+.tag.stg.st-interview{background:var(--accent);color:var(--surface);border-color:var(--accent)}
+.tag.stg.st-hired{background:var(--good);color:var(--surface);border-color:var(--good)}
+.tag.stg.st-rejected{background:var(--bad-soft);color:var(--bad);border-color:var(--bad)}
+.fb.mail{border-color:var(--accent);color:var(--accent)}
+.fb.mail[aria-expanded="true"]{background:var(--accent-soft)}
+.mailbox{border:1px solid var(--line);border-radius:10px;padding:14px;display:grid;gap:10px;background:var(--bg)}
+.mailbox label{font-size:12.5px;font-weight:700;color:var(--muted)}
+.mailbox .q{font-size:14px;color:var(--ink);margin:0}
+.mailbox textarea,.mailbox input{width:100%;box-sizing:border-box;font:inherit;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface);color:var(--ink)}
+.mailbox textarea.personal{min-height:58px;border-color:var(--accent)}
+.mailbox .preview{white-space:pre-wrap;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;line-height:1.6}
+.mailbox .preview mark{background:var(--warn-soft);color:var(--warn);border-radius:4px;padding:0 3px}
+.mailbox .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.mailbox .row a{text-decoration:none}
+.mailbox .ok{font-size:13px;color:var(--good);font-weight:600}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.job h3{margin:0;font-size:19px;line-height:1.3;text-wrap:balance}
+.job h3 a{color:inherit;text-decoration:none}
+.job h3 a:hover{text-decoration:underline;text-decoration-color:var(--accent)}
+.company{font-weight:600;color:var(--accent)}
+.where{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;font-size:14px;color:var(--muted)}
+.where strong{color:var(--ink);font-weight:700}
+.where a{color:var(--accent);font-weight:600}
+.score{display:flex;flex-direction:column;align-items:center;gap:2px;flex:none}
+.score .num{font-family:var(--f-mono);font-size:20px;line-height:1}
+.score .lbl{font-size:11px;color:var(--muted);letter-spacing:.06em}
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{font-size:13px;padding:1px 8px;border-radius:6px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.tag.src{font-family:var(--f-mono);font-size:12px}
+.field{min-width:0}
+.field b{display:block;font-size:12.5px;color:var(--muted);font-weight:700;letter-spacing:.03em}
+.field p{margin:2px 0 0}
+details.tr summary{cursor:pointer;color:var(--accent);font-weight:600;font-size:14px}
+details.tr p{margin:6px 0 0;white-space:pre-wrap}
+.actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border-top:1px dashed var(--line);padding-top:10px}
+.fb{font:inherit;font-weight:600;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:8px;padding:5px 12px;cursor:pointer}
+.fb.yes[aria-pressed="true"]{background:var(--good-soft);border-color:var(--good);color:var(--good)}
+.fb.no[aria-pressed="true"]{background:var(--bad-soft);border-color:var(--bad);color:var(--bad)}
+.fb.sent[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.tag.sent{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600}
+.note{flex:1 1 220px;min-width:0}
+.note input{padding:5px 10px}
+.empty{text-align:center;color:var(--muted);padding:40px 16px;border:1px dashed var(--line);border-radius:10px}
+.status{font-size:13px;color:var(--muted);min-height:1.2em}
+.tag.explore{background:var(--warn-soft);color:var(--warn);border-color:var(--warn);font-weight:600}
+.learned{display:grid;gap:10px;margin-top:14px}
+.learned ul{margin:0;padding-inline-start:20px;display:grid;gap:4px}
+.learned .meta{margin:0}
+@media (prefers-reduced-motion:no-preference){.job{transition:opacity .2s}}
+@media (max-width:520px){.top{flex-direction:column-reverse}.score{flex-direction:row;gap:8px}}
+/* ---- views / nav ---- */
+.nav{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;background:var(--bg);display:flex;gap:6px;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:-8px}
+.nav button{font:inherit;font-weight:700;font-size:15px;border:1px solid transparent;background:transparent;color:var(--muted);border-radius:10px;padding:6px 14px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.nav button[aria-current="page"]{background:var(--surface);border-color:var(--line);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.nav .badge{font-family:var(--f-mono);font-size:11.5px;background:var(--accent);color:var(--surface);border-radius:999px;padding:0 7px;line-height:18px}
+.view{display:flex;flex-direction:column;gap:22px}
+.view[hidden]{display:none!important}
+#viewJobs .bar{top:calc(env(safe-area-inset-top,0px) + 57px)}
+.closebar{display:flex;justify-content:flex-start;margin-top:14px;padding-top:12px;border-top:1px dashed var(--line)}
+/* ---- dashboard ---- */
+.hero{background:linear-gradient(135deg,var(--accent) 0%,#13857D 100%);color:#fff;border-radius:14px;padding:22px 22px 20px;display:grid;gap:6px;position:relative;overflow:hidden}
+.hero::after{content:"";position:absolute;inset:auto -40px -60px auto;width:200px;height:200px;border-radius:50%;background:rgba(255,255,255,.08)}
+.hero h2{font-family:var(--f-display);font-weight:400;font-size:clamp(24px,4.4vw,32px);margin:0;line-height:1.2}
+.hero p{margin:0;font-size:17px;max-width:56ch;position:relative;z-index:1}
+.hero .go{justify-self:start;margin-top:8px;font:inherit;font-weight:700;background:#fff;color:var(--accent);border:0;border-radius:999px;padding:6px 16px;cursor:pointer;position:relative;z-index:1}
+.hero .meta{color:rgba(255,255,255,.82);margin-top:4px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media (max-width:620px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{font:inherit;text-align:start;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;display:grid;gap:2px;border-top:4px solid var(--c,var(--line))}
+.tile:hover{border-color:var(--c,var(--accent))}
+.tile .v{font-family:var(--f-mono);font-size:28px;line-height:1.1;color:var(--ink)}
+.tile .l{font-size:14px;font-weight:700;color:var(--muted)}
+.tile .s{font-size:12.5px;color:var(--muted)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media (max-width:620px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;display:grid;gap:10px;align-content:start}
+.card h3{margin:0;font-size:15px;font-weight:700;color:var(--muted);letter-spacing:.02em}
+.ringwrap{display:flex;gap:16px;align-items:center}
+.ring{flex:none}
+.ring .lbl{font-family:var(--f-mono);font-size:22px;fill:var(--ink)}
+.ring .sub{font-size:11px;fill:var(--muted)}
+.goalctl{display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.goalctl button{font:inherit;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer;line-height:1}
+.big{font-size:17px;font-weight:700;margin:0}
+.streak{display:flex;align-items:center;gap:12px}
+.streak .fire{font-size:40px;line-height:1}
+.streak .n{font-family:var(--f-mono);font-size:30px;line-height:1}
+.dots{display:flex;gap:4px}
+.dots i{width:14px;height:14px;border-radius:4px;background:var(--line);display:block}
+.dots i.on{background:var(--good)}
+.dots i.today{outline:2px solid var(--accent);outline-offset:1px}
+.journey{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;align-items:stretch}
+.step{border-radius:10px;padding:10px 8px;text-align:center;background:var(--bg);border:1px solid var(--line);display:grid;gap:2px}
+.step .v{font-family:var(--f-mono);font-size:24px;line-height:1.1}
+.step .l{font-size:12.5px;font-weight:700;color:var(--muted)}
+.step.on{background:var(--accent-soft);border-color:var(--accent)}
+.step.on .v{color:var(--accent)}
+.step.win.on{background:var(--good-soft);border-color:var(--good)}.step.win.on .v{color:var(--good)}
+.mix{display:flex;height:14px;border-radius:999px;overflow:hidden;background:var(--line)}
+.mix span{display:block;height:100%}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:5px;vertical-align:-1px}
+.speed{display:grid;gap:8px}
+.speed .row{display:grid;grid-template-columns:110px 1fr auto;gap:10px;align-items:center;font-size:14px}
+.speed .track{height:10px;border-radius:999px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.speed .track span{display:block;height:100%;border-radius:999px}
+.speed .t{font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+.bars{display:flex;align-items:flex-end;gap:4px;height:70px}
+.bars div{flex:1;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px;opacity:.85}
+.bars div.zero{background:var(--line)}
+.bars div.today{opacity:1;box-shadow:0 0 0 2px var(--accent-soft)}
+.barsx{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.week{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;text-align:center}
+.week .d{display:grid;gap:4px;justify-items:center;font-size:12.5px;color:var(--muted);font-weight:600}
+.week .d i{width:100%;max-width:34px;aspect-ratio:1;border-radius:8px;background:var(--bg);border:1px solid var(--line);display:grid;place-items:center;font-style:normal;font-family:var(--f-mono);font-size:13px;color:var(--good)}
+.week .d.on i{background:var(--good-soft);border-color:var(--good)}
+.week .d.today{color:var(--accent)}.week .d.today i{outline:2px solid var(--accent);outline-offset:1px}
+.week .d.future i{opacity:.45;border-style:dashed}
+.fit{display:grid;gap:8px}
+.fit .row{display:grid;grid-template-columns:44px 1fr 34px;gap:10px;align-items:center;font-size:14px}
+.fit .sc{font-family:var(--f-mono);font-weight:600}
+.fit .track{height:14px;border-radius:999px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.fit .track span{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.fit .n{font-family:var(--f-mono);text-align:end}
+.speedg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.sbox{border-radius:10px;padding:12px 8px;text-align:center;background:var(--bg);border:1px solid var(--line);border-top:4px solid var(--c);display:grid;gap:2px}
+.sbox .v{font-size:20px;font-weight:700;line-height:1.2}
+.sbox .l{font-size:13px;color:var(--muted);font-weight:600}
+.lastup{position:relative;z-index:1;display:inline-flex;gap:8px;align-items:center;justify-self:start;margin-top:10px;background:rgba(255,255,255,.14);border-radius:999px;padding:4px 14px;font-size:14px}
+.lastup b{font-weight:700}
+.courses{display:grid;gap:10px}
+.course{border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:grid;gap:4px;background:var(--bg)}
+.course h4{margin:0;font-size:16.5px}.course h4 a{color:inherit}
+.course .org{color:var(--accent);font-weight:600;font-size:14px}
+.course .meta2{display:flex;flex-wrap:wrap;gap:6px}
+.course .why{margin:0;font-size:15px}
+.cinfo{font-size:14px;gap:3px 12px;margin:2px 0}
+.course .row{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.course .row button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.course.st-not{opacity:.55}
+.sect{font-family:var(--f-display);font-weight:400;font-size:22px;margin:6px 0 -8px}
+/* ---- note text on card ---- */
+.wheel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center}
+.wheel .axis{grid-column:1/-1;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.wheel .axis b{font-size:15px;margin-inline-end:6px}
+.wheel svg{width:210px;height:210px;display:block}
+.wheel svg path{cursor:pointer;transition:opacity .15s,transform .15s;transform-origin:105px 105px;stroke:var(--surface);stroke-width:2}
+.wheel svg path:hover{opacity:.85}
+.wheel svg path.dim{opacity:.25}
+.wheel svg path.sel{transform:scale(1.05)}
+.wheel svg .c1{font-family:var(--f-mono);font-size:30px;font-weight:800;fill:var(--ink)}
+.wheel svg .c2{font-size:12.5px;fill:var(--muted)}
+.wleg{display:flex;flex-wrap:wrap;gap:6px;align-content:center}
+.wleg button{font:inherit;font-size:14px;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:999px;padding:3px 12px 3px 10px;cursor:pointer}
+.wleg button i{width:11px;height:11px;border-radius:50%;background:var(--c);display:block}
+.wleg button .n{font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
+.wleg button[aria-pressed="true"]{border-color:var(--c);box-shadow:inset 0 0 0 1px var(--c);background:var(--surface);font-weight:700}
+.wleg .clr{border-style:dashed;color:var(--muted)}
+.tag.cat{background:var(--surface)}
+@media (max-width:620px){.wheel{grid-template-columns:1fr;justify-items:center}.wleg{justify-content:center}}
+.score-t td{vertical-align:middle}.score-t .sc{font-family:var(--f-mono);color:var(--accent);white-space:nowrap}
+.prigrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media (max-width:620px){.prigrid{grid-template-columns:1fr}}
+.pri{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:6px;counter-reset:pr}
+.pri li{counter-increment:pr;display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:15px}
+.pri li::before{content:counter(pr);width:22px;height:22px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:800;display:grid;place-items:center;font-size:13px;flex:none}
+.pri li span{flex:1}
+.pri li button{font:inherit;width:28px;height:28px;border-radius:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer;line-height:1}
+.pri li button:disabled{opacity:.3;cursor:default}
+#login{position:fixed;inset:0;z-index:50;background:var(--bg);display:grid;place-items:center;padding:16px}
+#login[hidden]{display:none}
+.loginbox{width:min(360px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:24px;display:grid;gap:12px}
+.loginbox h1{margin:0;font-size:26px}.loginbox p{margin:0;color:var(--muted)}
+.loginbox label{display:grid;gap:4px;font-weight:600;font-size:15px}
+.loginbox input{font:inherit;border:1px solid var(--line);border-radius:8px;padding:9px 10px;background:var(--bg);color:var(--ink)}
+.notetxt{flex:1 1 100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:8px 12px;color:var(--muted);font-size:15px}
+.job.fb-not .notetxt{background:var(--bad-soft);border-color:transparent;color:var(--ink)}
+/* ---- settings ---- */
+.plan{counter-reset:st;list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.plan li{counter-increment:st;display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start}
+.plan li::before{content:counter(st);width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:800;display:grid;place-items:center;font-family:var(--f-mono)}
+.plan b{display:block}
+.perm{width:100%;border-collapse:collapse;font-size:14.5px}
+.perm th,.perm td{text-align:start;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+.perm th{font-size:12.5px;color:var(--muted)}
+.never{display:flex;flex-wrap:wrap;gap:6px}
+.never span{background:var(--bad-soft);color:var(--bad);border-radius:999px;padding:3px 12px;font-size:14px;font-weight:600}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:15px}
+.kv dt{color:var(--muted);font-weight:700}.kv dd{margin:0}
+</style>
+</head>
+<body>
+<div id="login" hidden>
+  <form id="loginForm" class="loginbox">
+    <h1>סוכן המשרות</h1>
+    <p>כניסה לחשבון שלך</p>
+    <label>מייל<input type="email" id="loginEmail" autocomplete="username" required></label>
+    <label>סיסמה<input type="password" id="loginPass" autocomplete="current-password" required></label>
+    <button class="btn primary" type="submit">כניסה</button>
+    <p class="hint" id="loginMsg" aria-live="polite"></p>
+  </form>
+</div>
+
+
+<div class="wrap">
+  <nav class="nav" aria-label="מסכים">
+    <button data-view="home" aria-current="page">ראשי</button>
+    <button data-view="jobs">משרות <span class="badge" id="navNew" hidden></span></button>
+    <button data-view="path">הדרך לעבודה</button>
+    <button data-view="settings">הגדרות</button>
+  </nav>
+
+  <section class="view" id="viewHome">
+  <header>
+    <h1 id="siteTitle">סוכן המשרות</h1>
+        <p>המשרות שהסוכן מצא בכל בוקר. סמני רלוונטי או לא רלוונטי, והסריקה הבאה תלמד מזה.</p>
+    <div class="meta" id="lastRun">טוען נתונים…</div>
+  </header>
+    <section class="hero" aria-live="polite">
+      <h2 id="hello">שלום</h2>
+      <p id="cheer">טוען…</p>
+      <button class="go" id="cheerGo" hidden></button>
+      <div class="lastup" id="heroLast"></div>
+    </section>
+
+    <div class="tiles" id="tiles"></div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>יעד שבועי לשליחת קו״ח</h3>
+        <div class="ringwrap"><svg class="ring" id="ring" width="104" height="104" viewBox="0 0 104 104" role="img"></svg>
+          <div style="display:grid;gap:6px"><p class="big" id="goalTxt"></p>
+            <div class="goalctl">יעד קו״ח לשבוע: <button id="goalMinus" aria-label="הורדת היעד">−</button><b id="goalN">5</b><button id="goalPlus" aria-label="העלאת היעד">+</button></div></div></div>
+      </div>
+      <div class="card">
+        <h3>הפעילות שלך השבוע</h3>
+        <div class="streak"><span class="fire" id="fire">🔥</span><div><span class="n" id="streakN">0</span> <b id="streakL">ימים פעילים השבוע</b><p class="hint" id="streakHint"></p></div></div>
+        <div class="week" id="dots" aria-label="ימי השבוע"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>המסע שלך</h3>
+      <div class="journey" id="journey"></div>
+      <p class="hint" id="journeyHint"></p>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>כמה משרות מתאימות הסוכן מצא</h3>
+        <div class="fit" id="fit"></div>
+        <p class="hint">לפי ציון ההתאמה שהסוכן נתן לכל משרה: 5/5 מתאימה מאוד, 3/5 שווה הצצה.</p>
+      </div>
+      <div class="card">
+        <h3>ממוצע זמן קבלת החלטה</h3>
+        <div class="speed" id="speed"></div>
+        <p class="hint">הזמן הממוצע מהרגע שמשרה נכנסה לרשימה ועד שסימנת אותה.</p>
+      </div>
+    </div>
+
+    <h2 class="sect">כלים</h2>
+  <details class="panel" id="addPanel">
+    <summary><h2>הוספה: משרה שמצאתי או אתר לסריקה</h2></summary>
+    <div class="crit">
+      <div class="modes" role="group" aria-label="מה מוסיפים"><button class="wchip on" data-mode="job">משרה שמצאתי</button><button class="wchip" data-mode="site">אתר שהסוכן יסרוק</button></div>
+      <div id="modeJob" style="display:grid;gap:12px">
+        <div><label for="addUrl">קישור למודעה</label><input type="url" id="addUrl" placeholder="https://..." dir="ltr"></div>
+        <div><label for="addText">או הדביקי כאן את טקסט המודעה (למשל מפוסט בפייסבוק או מוואטסאפ)</label><textarea id="addText" style="min-height:90px"></textarea></div>
+        <div><label for="addNote">למה זה מעניין אותי (לא חובה)</label><input type="text" id="addNote"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" id="addJobBtn">הוספה למעקב</button><span class="status" id="addStatus" aria-live="polite"></span></div>
+        <div id="inboxList"></div>
+        <p class="hint">הסריקה הבאה תקרא את המודעה, תחקור את החברה ותכין לה כרטיס עם נוסח למייל.</p>
+      </div>
+      <div id="modeSite" style="display:none;gap:12px">
+        <div><label for="siteUrl">קישור לאתר, לדף קריירה או לקבוצת פייסבוק</label><input type="url" id="siteUrl" placeholder="https://..." dir="ltr"></div>
+        <div><label for="siteNote">מה לחפש שם (לא חובה)</label><input type="text" id="siteNote" placeholder="למשל: רק תפקידי תפעול והטמעה"></div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn primary" id="addSiteBtn">הוספה לסריקה</button><span class="status" id="siteStatus" aria-live="polite"></span></div>
+        <p class="hint">האתר יופיע מיד ברשימה "איפה הסוכן מחפש" במסך ההגדרות, ויסרק מהסריקה הבאה.</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel" id="critPanel">
+    <summary><h2>מה אני מחפשת · דיוק החיפוש</h2></summary>
+    <div class="crit">
+      <div>
+        <label for="addInc">תחומים ותפקידים שמעניינים אותי</label>
+        <div class="chips" id="incChips"></div>
+        <div class="addrow"><input type="text" id="addInc" placeholder="למשל: Customer Success בסטארטאפ שיקום"><button class="btn" id="addIncBtn">הוספה</button></div>
+      </div>
+      <div>
+        <label for="addExc">מה לא מעניין אותי</label>
+        <div class="chips" id="excChips"></div>
+        <div class="addrow"><input type="text" id="addExc" placeholder="למשל: משרות מכירה טלפונית"><button class="btn" id="addExcBtn">הוספה</button></div>
+      </div>
+      <div>
+        <label for="refine">הערות חופשיות לסוכן</label>
+        <textarea id="refine" placeholder="למשל: פחות משרות בירושלים, יותר משרות באנגלית בחברות גלובליות"></textarea>
+        <p class="hint">נשמר אוטומטית. הסוכן קורא את הדף הזה לפני כל סריקה.</p>
+      </div>
+      <div class="status" id="critStatus" aria-live="polite"></div>
+    </div>
+  </details>
+
+  <details class="panel" id="waPanel">
+    <summary><h2>הודעת וואטסאפ להעברת קו״ח</h2></summary>
+    <div class="crit">
+      <div>
+        <label>לאילו עולמות ההודעה מיועדת? (אפשר לבחור כמה)</label>
+        <div class="chips" id="waWorlds"></div>
+        <input type="text" id="waCustom" style="margin-top:8px" placeholder="עולם נוסף במילים שלך, למשל: רפואה צבאית">
+      </div>
+      <div class="warow">
+        <div><label for="waName">למי שולחים? (לא חובה)</label><input type="text" id="waName" placeholder="שם של אדם או של קבוצה"></div>
+        <div><label>סגנון</label><div class="chips" id="waStyle"><button class="wchip on" data-st="list">מבנה מסודר</button><button class="wchip" data-st="para">פסקה קצרה</button></div></div>
+      </div>
+      <div>
+        <label for="waOut">ההודעה (אפשר לערוך כאן)</label>
+        <textarea id="waOut" style="min-height:260px;line-height:1.6"></textarea>
+        <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap"><button class="btn primary" id="waCopy">העתקת ההודעה</button><button class="btn" id="waReset">בנייה מחדש</button><span class="status" id="waOk" aria-live="polite"></span></div>
+        <p class="hint">כל שינוי בבחירות בונה את ההודעה מחדש. עריכה ידנית נשמרת עד שמשנים בחירה או לוחצים "בנייה מחדש".</p>
+      </div>
+    </div>
+  </details>
+
+  <details class="panel" id="learnPanel">
+    <summary><h2>מה הסוכן למד מהסימונים שלך</h2></summary>
+    <div class="learned" id="learned"><p class="hint">אחרי שתסמני כמה משרות כרלוונטיות או לא רלוונטיות, הסוכן יכתוב כאן את הדפוסים שזיהה ואיך הוא משנה את החיפוש.</p></div>
+  </details>
+
+  </section>
+
+  <section class="view" id="viewJobs" hidden>
+  <div class="bar" role="toolbar" aria-label="סינון משרות">
+    <button class="tab" data-f="new" aria-pressed="true">חדשות<span class="n" id="n-new"></span></button>
+    <button class="tab" data-f="relevant" aria-pressed="false">רלוונטיות<span class="n" id="n-relevant"></span></button>
+    <button class="tab" data-f="applied" aria-pressed="false">שלחתי קו״ח<span class="n" id="n-applied"></span></button>
+    <button class="tab" data-f="not" aria-pressed="false">לא רלוונטיות<span class="n" id="n-not"></span></button>
+    <button class="tab" data-f="all" aria-pressed="false">הכול<span class="n" id="n-all"></span></button>
+  </div>
+  <div class="bar sub" id="subBar" role="toolbar" aria-label="סינון לפי שליחת קו״ח" hidden>
+    <button class="stab" data-s="any" aria-pressed="true">הכול<span class="n" id="s-any"></span></button>
+    <button class="stab" data-s="todo" aria-pressed="false">עוד לא נשלחו קו״ח<span class="n" id="s-todo"></span></button>
+    <button class="stab" data-s="sent" aria-pressed="false">נשלחו קו״ח<span class="n" id="s-sent"></span></button>
+  </div>
+
+  <div class="wheel" id="wheel" aria-label="גלגל קטגוריות">
+    <div class="axis" role="toolbar" aria-label="לפי מה לפלח"><b>גלגל הקטגוריות</b><button class="stab" data-ax="role" aria-pressed="true">סוג תפקיד</button><button class="stab" data-ax="org" aria-pressed="false">סוג ארגון</button></div>
+    <svg viewBox="0 0 210 210" id="wheelSvg" role="img" aria-label="התפלגות המשרות לפי קטגוריה"></svg>
+    <div class="wleg" id="wheelLeg"></div>
+  </div>
+
+  <div class="list" id="list">
+    <div class="empty">המשרות יופיעו כאן אחרי הסריקה הראשונה. כל בוקר נוספות משרות חדשות, ממוינות לפי ציון התאמה.</div>
+  </div>
+  </section>
+
+  <section class="view" id="viewPath" hidden>
+    <h2 class="sect" style="margin:0">הדרך לעבודה</h2>
+    <p class="hint" style="margin:0;font-size:15px">דברים שמקדמים אותך מעבר לחיפוש משרות. בינתיים: קורסים והכשרות שהסוכן מצא ומתאימים לכיוון שלך. הסוכן מוסיף כאן הצעות חדשות פעם בשבוע.</p>
+    <div class="card"><h3>קורסים והכשרות</h3><div id="courses" class="courses"><p class="hint">טוען…</p></div></div>
+  </section>
+
+  <section class="view" id="viewSettings" hidden>
+    <h2 class="sect" style="margin:0">הגדרות</h2>
+    <div class="card">
+      <h3>תוכנית הסריקה</h3>
+      <dl class="kv">
+        <dt>מתי</dt><dd>ראשון עד חמישי ב-20:13, כשהמחשב דלוק. בשישי ובשבת אין סריקה. אפשר גם לבקש סריקה בכל רגע בצ׳אט.</dd>
+        <dt>סיכום</dt><dd>התראה קצרה לטלפון בסוף כל סריקה. המשרות עצמן מופיעות כאן בדף, בלי מייל סיכום.</dd>
+        <dt>מודעות שהוסרו</dt><dd>כל יום שני הסוכן בודק אם המודעות של המשרות הפתוחות עדיין באוויר. מודעה שהוסרה ולא נמצאה במקום אחר עוברת ל"לא רלוונטי".</dd>
+        <dt>סריקה אחרונה</dt><dd id="setLast">…</dd>
+      </dl>
+      <ol class="plan">
+        <li><div><b>לומד מהסימונים שלך</b>קורא מה סימנת רלוונטי, לא רלוונטי ושלחתי קו״ח, ואת הסיבות שכתבת, ומעדכן את כללי החיפוש.</div></li>
+        <li><div><b>סורק את המקורות</b>לינקדאין, קבוצות פייסבוק, התראות במייל, AllJobs, דרושים, מכרזים ודפי קריירה. הרשימה המלאה למטה.</div></li>
+        <li><div><b>מסנן לפי מה שאת מחפשת</b>תחומים ותפקידים, מיקום (תל אביב-יפו וגוש דן), שכר (יעד 15,000), והחרגות.</div></li>
+        <li><div><b>חוקר כל משרה</b>מה החברה עושה, מה מצבה, למה זה מתאים לך, בדיקת דרישות חובה ותרגום מאנגלית.</div></li>
+        <li><div><b>מכין לך את ההגשה</b>סיכום תפקיד, אנשים לפנות אליהם בלינקדאין, טיפים לקו״ח ונוסח מייל בסגנון שלך.</div></li>
+        <li><div><b>שומר כאן</b>המשרות נכנסות ל"חדשות", ממוינות לפי ציון ההתאמה.</div></li>
+      </ol>
+    </div>
+
+    <div class="card">
+      <h3>איך נקבע ציון ההתאמה</h3>
+      <table class="perm score-t">
+        <tbody>
+          <tr><td><b class="sc">5/5</b></td><td>תפקיד ליבה מהקטגוריות העליונות ברשימה למטה, בתחום שאת מחפשת (בריאות, שיקום, נגישות), ואת עומדת בדרישות החובה.</td></tr>
+          <tr><td><b class="sc">4/5</b></td><td>התאמה חזקה עם פער אחד: שנות ניסיון, תחום קרוב או דרישה טכנית.</td></tr>
+          <tr><td><b class="sc">3/5</b></td><td>שווה הצצה: תפקיד או תחום קרוב למה שאת מחפשת. כאן נכנסות גם משרות "קרוב למה שאת מחפשת".</td></tr>
+          <tr><td><b class="sc">2/5</b></td><td>לא מספיק מתאים. הסוכן לא מכניס משרות כאלה.</td></tr>
+          <tr><td><b class="sc">1/5</b></td><td>כמעט לא מתאים. מופיע רק במשרות שהוספת בעצמך או במשרות שהסוכן שמר להשוואה.</td></tr>
+        </tbody>
+      </table>
+      <p class="hint" style="margin:0"><b>מה מוריד ציון:</b> משרה בלי דרישת תואר (−1), מיקום רחוק בלי עבודה היברידית (−1), דרישה שאין לך (למשל סיווג ביטחוני או רישיון קליני מוציאים את המשרה לגמרי).<br><b>מה מעלה ציון:</b> קטגוריה גבוהה בסדר העדיפות שלך, ומשרות דומות לאלה שסימנת רלוונטי או ששלחת אליהן קו״ח.</p>
+      <h3 style="margin-top:6px">סדר העדיפות שלך</h3>
+      <p class="hint" style="margin:0">אפשר להזיז קטגוריות למעלה ולמטה בחצים. מה שלמעלה מקבל עדיפות בציון ובסריקה. הסוכן קורא את הסדר בכל סריקה.</p>
+      <div class="prigrid">
+        <div><b>סוג תפקיד</b><ol class="pri" id="priRole"></ol></div>
+        <div><b>סוג ארגון</b><ol class="pri" id="priOrg"></ol></div>
+      </div>
+      <span class="ok" id="priOk" aria-live="polite" style="font-size:14px;color:var(--good)"></span>
+    </div>
+
+    <div class="card">
+      <h3>הכללים שלך כרגע</h3>
+      <div id="setRules" class="learned" style="margin:0"></div>
+      <p class="hint">לעריכה: "מה אני מחפשת" במסך הראשי.</p>
+    </div>
+
+    <div class="card">
+      <h3>חשבון וגיבוי</h3>
+      <p class="hint" style="margin:0" id="acctMode"></p>
+      <p class="hint" style="margin:0" id="acctUser"></p>
+      <div class="row" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+        <button class="btn" id="expBtn">הורדת גיבוי (JSON)</button>
+        <label class="btn" style="cursor:pointer">ייבוא מגיבוי<input type="file" id="impFile" accept="application/json,.json" hidden></label>
+        <button class="btn" id="outBtn">התנתקות</button>
+        <span class="hint" id="impMsg" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>הרשאות</h3>
+      <table class="perm">
+        <thead><tr><th>מה מחובר</th><th>במה משתמש</th><th>מה מותר לו</th></tr></thead>
+        <tbody>
+          <tr><td>Chrome שלך</td><td>לינקדאין, AllJobs, דרושים, דפי קריירה ומכרזים</td><td>לקרוא בלבד, בחשבון שלך</td></tr>
+          <tr><td>הדפדפן המובנה באפליקציה</td><td>קבוצות הפייסבוק</td><td>לקרוא פוסטים ותמונות בלבד</td></tr>
+          <tr><td>Gmail</td><td>התראות משרות מ-AllJobs ומלינקדאין</td><td>לקרוא בלבד, לא שולח מיילים</td></tr>
+          <tr><td>הדף הזה</td><td>המשרות, הסיכומים והלמידה</td><td>להוסיף ולעדכן משרות</td></tr>
+          <tr><td>התראות</td><td>סוף סריקה</td><td>התראה לטלפון שלך בלבד</td></tr>
+        </tbody>
+      </table>
+      <div><b style="font-size:14px">מה הסוכן אף פעם לא עושה</b></div>
+      <div class="never"><span>מגיש מועמדות</span><span>ממלא טפסים</span><span>מקליד סיסמאות</span><span>עוקב או מתחבר לאנשים</span><span>שולח הודעות</span><span>לייק, תגובה או פרסום</span><span>מצטרף לקבוצות</span><span>שולח מיילים בשמך</span></div>
+    </div>
+
+  <details class="panel" id="srcPanel">
+    <summary><h2>🔎 איפה הסוכן מחפש<span class="n" id="n-src"></span></h2></summary>
+    <div class="crit" id="srcList"><p class="hint">טוען…</p></div>
+  </details>
+
+  </section>
+</div>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s);
+  let sub="any"; let ROLES={}; let archCount=0, showArch=false;
+  let busy=false, applying=false, pendingRender=false; const openMail=new Set();
+  let db=null, jobs=[], crit={include:[],exclude:[],refinements:""}, filter="new";
+  const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  const safeUrl=u=>/^https?:\/\//i.test(u||"")?u:"#";
+  const arr=x=>Array.isArray(x)?x:(x==null||x===""?[]:[x]);
+  const fmtDate=s=>{ if(!s) return ""; const d=new Date(s); return isNaN(d)?"":d.getDate()+"."+(d.getMonth()+1)+"."+d.getFullYear(); };
+
+  function counts(){
+    const c={new:0,relevant:0,applied:0,not:0,all:jobs.length};
+    jobs.forEach(j=>{ if(j.applied)c.applied++; if(j.feedback==="relevant")c.relevant++; else if(j.feedback==="not")c.not++; else if(!j.applied)c.new++; });
+    for(const k in c){const el=$("#n-"+k); if(el) el.textContent=c[k]?String(c[k]):"";}
+    const R=jobs.filter(j=>j.feedback==="relevant"), sc={any:R.length,todo:R.filter(j=>!j.applied).length,sent:R.filter(j=>j.applied).length};
+    for(const k in sc){const el=$("#s-"+k); if(el) el.textContent=sc[k]?String(sc[k]):"";}
+  }
+  let catAx="role", catSel=null, wheelBase=[];
+  try{ catAx=localStorage.getItem("catAx")||"role"; }catch(_){}
+  const CATCOL=["#0B6E69","#D9822B","#3E6FB0","#B5487A","#6B8E23","#8A63B8","#C9A227","#4F9BA8","#A0522D","#7A8A90","#2E8B57","#C05050"];
+  const catOf=j=>(catAx==="org"?j.orgCat:j.roleCat)||"אחר";
+  function renderWheel(){
+    const svg=$("#wheelSvg"), leg=$("#wheelLeg"); if(!svg) return;
+    document.querySelectorAll("[data-ax]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.ax===catAx)));
+    const cnt={}; wheelBase.forEach(j=>{ const c=catOf(j); cnt[c]=(cnt[c]||0)+1; });
+    const all=[...new Set(jobs.map(catOf))].sort();
+    const colorOf=c=>CATCOL[all.indexOf(c)%CATCOL.length];
+    const cats=Object.entries(cnt).sort((a,b)=>b[1]-a[1]);
+    if(catSel&&!cnt[catSel]) cats.push([catSel,0]);
+    const tot=wheelBase.length, cx=105, cy=105, R=100, r=60;
+    let a0=-Math.PI/2, paths="";
+    const pt=(rad,a)=>[cx+rad*Math.cos(a),cy+rad*Math.sin(a)];
+    cats.forEach(([c,n])=>{ if(!n) return; const a1=a0+2*Math.PI*n/tot*(cats.filter(x=>x[1]).length===1?0.9999:1);
+      const [x0,y0]=pt(R,a0),[x1,y1]=pt(R,a1),[x2,y2]=pt(r,a1),[x3,y3]=pt(r,a0), lg=(a1-a0)>Math.PI?1:0;
+      paths+=`<path d="M${x0} ${y0}A${R} ${R} 0 ${lg} 1 ${x1} ${y1}L${x2} ${y2}A${r} ${r} 0 ${lg} 0 ${x3} ${y3}Z" fill="${colorOf(c)}" data-cat="${esc(c)}" class="${catSel?(catSel===c?"sel":"dim"):""}"><title>${esc(c)}: ${n}</title></path>`; a0=a1; });
+    const shown=catSel?(cnt[catSel]||0):tot;
+    const lbl=catSel?(catSel.length>18?catSel.slice(0,17)+"…":catSel):"משרות בתצוגה";
+    svg.innerHTML=(tot?paths:`<circle cx="${cx}" cy="${cy}" r="${(R+r)/2}" fill="none" stroke="var(--line)" stroke-width="${R-r}"/>`)+`<text x="${cx}" y="${cy+4}" text-anchor="middle" class="c1">${shown}</text><text x="${cx}" y="${cy+24}" text-anchor="middle" class="c2">${esc(lbl)}</text>`;
+    leg.innerHTML=cats.map(([c,n])=>`<button data-cat="${esc(c)}" aria-pressed="${catSel===c}" style="--c:${colorOf(c)}"><i></i>${esc(c)}<span class="n">${n}</span></button>`).join("")+(catSel?`<button class="clr" data-cat="">✕ כל הקטגוריות</button>`:"");
+  }
+  document.addEventListener("click",e=>{
+    const ax=e.target.closest("[data-ax]"); if(ax){ catAx=ax.dataset.ax; catSel=null; try{localStorage.setItem("catAx",catAx);}catch(_){} render(); return; }
+    const w=e.target.closest("#wheel [data-cat]"); if(w){ const c=w.dataset.cat; catSel=(!c||catSel===c)?null:c; render(); }
+  });
+  const ROLE_DEF=["הטמעת מערכות","ניהול תוכניות ופרויקטים","הטמעת AI","תפעול ומטה","הצלחת לקוחות ותמיכה קלינית","קהילה, שותפויות וחדשנות","למידה, הדרכה ופיתוח ארגוני","ניהול בכיר ומקצועי"];
+  const ORG_DEF=["בתי חולים וקופות חולים","עמותות ומיזמים חברתיים","ממשלה, עיריות ומכרזים","הייטק ומדטק","פארמה וביוטק","חקלאות","ביטחון","חברת השמה (מעסיק חסוי)"];
+  let PRI={role:ROLE_DEF.slice(),org:ORG_DEF.slice()}, priVer=0;
+  function mergePri(saved,def,key){ const seen=new Set(); const out=[]; (saved||[]).forEach(c=>{ if(c&&!seen.has(c)){seen.add(c);out.push(c);} }); def.concat(jobs.map(j=>j[key]).filter(Boolean)).forEach(c=>{ if(!seen.has(c)){seen.add(c);out.push(c);} }); return out; }
+  function renderPri(){
+    const draw=(id,arr,ax)=>{ const el=$(id); if(!el) return; el.innerHTML=arr.map((c,i)=>`<li><span>${esc(c)}</span><button data-pri="${ax}" data-i="${i}" data-d="-1" aria-label="להזיז למעלה" ${i===0?"disabled":""}>↑</button><button data-pri="${ax}" data-i="${i}" data-d="1" aria-label="להזיז למטה" ${i===arr.length-1?"disabled":""}>↓</button></li>`).join(""); };
+    PRI.role=mergePri(PRI.role,ROLE_DEF,"roleCat"); PRI.org=mergePri(PRI.org,ORG_DEF,"orgCat");
+    draw("#priRole",PRI.role,"role"); draw("#priOrg",PRI.org,"org");
+  }
+  document.addEventListener("click",async e=>{ const b=e.target.closest("[data-pri]"); if(!b) return;
+    const ax=b.dataset.pri, i=+b.dataset.i, d=+b.dataset.d, a=PRI[ax], k=i+d; if(k<0||k>=a.length) return;
+    [a[i],a[k]]=[a[k],a[i]]; renderPri(); const nb=document.querySelector(`[data-pri="${ax}"][data-i="${k}"][data-d="${d}"]`)||document.querySelector(`[data-pri="${ax}"][data-i="${k}"]`); if(nb) nb.focus();
+    if(db){ try{ await db.doc("settings/catPriority").set({role:PRI.role,org:PRI.org,updatedAt:new Date().toISOString()}); const ok=$("#priOk"); if(ok){ ok.textContent="✓ נשמר"; setTimeout(()=>ok.textContent="",1800);} }catch(_){} }
+  });
+  function byMail(j){ const m=j.coverEmail; if(!m||typeof m!=="object") return false; if(j.applyVia) return j.applyVia==="email"; return !!m.to; }
+  function view(){
+    let v=jobs.slice();
+    if(filter==="new") v=v.filter(j=>!j.feedback&&!j.applied);
+    else if(filter==="applied") v=v.filter(j=>j.applied);
+    else if(filter!=="all") v=v.filter(j=>j.feedback===filter);
+    if(filter==="relevant"){ if(sub==="todo") v=v.filter(j=>!j.applied); else if(sub==="sent") v=v.filter(j=>j.applied); }
+    wheelBase=v.slice(); if(catSel) v=v.filter(j=>catOf(j)===catSel);
+    v.sort((a,b)=>(b.score||0)-(a.score||0)||(b.foundAtIso||b.foundAt||"").localeCompare(a.foundAtIso||a.foundAt||""));
+    if(filter==="not"){ v.sort((a,b)=>(b.feedbackAt||"").localeCompare(a.feedbackAt||"")); archCount=Math.max(0,v.length-50); if(!showArch) v=v.slice(0,50); } else archCount=0;
+    return v;
+  }
+  const LIC='<svg class="li-ic" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="4" fill="#0A66C2"/><path fill="#fff" d="M7.1 9.5H4.6V19h2.5V9.5zM5.85 5.5a1.45 1.45 0 1 0 0 2.9 1.45 1.45 0 0 0 0-2.9zM19.4 13.6c0-2.6-1.4-4.3-3.7-4.3-1.3 0-2.1.7-2.5 1.3V9.5h-2.4V19h2.5v-5c0-1.3.5-2.2 1.7-2.2 1.1 0 1.6.8 1.6 2.2v5h2.8v-5.4z"/></svg>';
+  const liOk=u=>/^https:\/\/([a-z]+\.)?linkedin\.com\//.test(String(u||""));
+  function contactsBlock(j){ const cs=arr(j.contacts).filter(c=>c&&c.name&&liOk(c.url)); if(!cs.length) return "";
+    return `<div class="field contacts"><b>👤 למי לפנות בלינקדאין</b><ul>${cs.map(c=>`<li><a href="${esc(c.url)}" target="_blank" rel="noopener">${LIC}${esc(c.name)}</a> <span class="r">${esc(c.role||"")}${c.why?" · "+esc(c.why):""}</span></li>`).join("")}</ul></div>`; }
+  function render(){
+    if(!applying){ busy=false; const L=document.getElementById("list"); if(L) L.classList.remove("locked"); }
+    counts(); try{ renderDash(); }catch(err){ console.error("dash",err); }
+    const v=view(), list=$("#list"); try{ renderWheel(); }catch(err){ console.error("wheel",err); } try{ renderPri(); }catch(_){}
+    if(!jobs.length){list.innerHTML='<div class="empty">המשרות יופיעו כאן אחרי הסריקה הראשונה. כל בוקר נוספות משרות חדשות, ממוינות לפי ציון התאמה.</div>';return;}
+    if(!v.length){list.innerHTML='<div class="empty">אין משרות בתצוגה הזו.</div>';return;}
+    const archNote=archCount?`<div class="empty archnote">מוצגות 50 המשרות האחרונות שסימנת "לא רלוונטי". עוד ${archCount} נמצאות בארכיון. <button class="btn" id="archBtn">הצגת הארכיון</button></div>`:(filter==="not"&&showArch?`<div class="empty archnote">מוצג גם הארכיון. <button class="btn" id="archBtn">הסתרת הארכיון</button></div>`:"");
+    list.innerHTML=archNote+v.map(j=>{ try{
+      const s=Math.max(1,Math.min(5,j.score||3));
+      const pick=j.applied?`<span class="pick applied">הבחירה שלך: ✉ שלחתי קו״ח</span>`:j.feedback==="relevant"?`<span class="pick relevant">הבחירה שלך: ✓ רלוונטי</span>`:j.feedback==="not"?`<span class="pick not">הבחירה שלך: ✕ לא רלוונטי</span>`:"";
+      return `<article class="job s${s} ${j.feedback?"fb-"+j.feedback:""} ${j.applied?"is-applied":""}" data-id="${esc(j.id)}">
+        <div class="top">
+          <div class="field">
+            <h3><a href="${esc(safeUrl(j.url))}" target="_blank" rel="noopener">${esc(j.title)}</a></h3>
+            <div class="company">${esc(j.company)}</div>
+            <div class="where">פורסמה ב: <strong>${esc(j.source||"לא צוין")}</strong>${j.url?`<a href="${esc(safeUrl(j.url))}" target="_blank" rel="noopener">למודעה ←</a>`:""}</div>
+          </div>
+          <div class="score" title="ציון התאמה"><span class="num">${s}/5</span><span class="lbl">התאמה</span></div>
+        </div>
+        <div class="tags">
+          ${j.explore?`<span class="tag explore" title="לא בדיוק מה שהגדרת, אבל קרוב. הסימון שלך מלמד את הסוכן אם להרחיב לכיוון הזה">קרוב למה שאת מחפשת${j.exploreWhy?" · "+esc(j.exploreWhy):""}</span>`:""}
+          ${j.applied?`<span class="tag sent">נשלחו קו״ח · ${esc(fmtDate(j.appliedAt))}</span>`:""}
+          ${j.applied&&STAGES[j.stage]?`<span class="tag stg st-${esc(j.stage)}">${STAGES[j.stage]}${j.stageAt?" · "+esc(fmtDate(j.stageAt)):""}</span>`:""}
+          ${j.location?`<span class="tag">${esc(j.location)}</span>`:""}
+          ${j.roleCat?`<span class="tag cat">${esc(j.roleCat)}</span>`:""}${j.orgCat?`<span class="tag cat">${esc(j.orgCat)}</span>`:""}
+          ${j.foundAt?`<span class="tag src">${esc(j.foundAt)}</span>`:""}
+        </div>
+        ${(j.roleSummary||ROLES[j.id])?`<div class="field role"><b>התפקיד בקצרה</b><p>${esc(j.roleSummary||ROLES[j.id])}</p></div>`:""}
+        ${arr(j.reqs).length?reqBlock(j):""}
+        ${j.about?`<div class="field"><b>במה החברה עוסקת</b><p>${esc(j.about)}</p></div>`:""}
+        ${j.research?`<div class="field"><b>מחקר קצר</b><p>${esc(j.research)}</p></div>`:""}
+        ${j.why?`<div class="field"><b>למה זה מתאים לך</b><p>${esc(j.why)}</p></div>`:""}
+        ${arr(j.altSources).filter(x=>x&&x.url).length?`<div class="field"><b>🔗 המודעה מפורסמת גם כאן</b><ul>${arr(j.altSources).filter(x=>x&&x.url).map(x=>`<li><a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.label||x.url)}</a>${x.note?` · ${esc(x.note)}`:""}</li>`).join("")}</ul></div>`:""}
+        ${contactsBlock(j)}
+        ${arr(j.adAsks).length?`<div class="field asks"><b>📌 מה המשרה מבקשת בהגשה</b><ul>${arr(j.adAsks).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}
+        ${arr(j.cvTips).length?`<div class="field cvtips"><b>📝 כדאי לעדכן בקורות החיים לפני ההגשה</b><ul>${arr(j.cvTips).map(x=>`<li>${esc(x)}</li>`).join("")}</ul></div>`:""}
+        ${j.translation?`<details class="tr"><summary>תרגום המודעה לעברית</summary><p>${esc(j.translation)}</p></details>`:""}
+        <div class="actions">
+          ${pick}
+          <button class="fb yes" data-act="relevant" aria-pressed="${j.feedback==="relevant"}">✓ רלוונטי</button>
+          <button class="fb no" data-act="not" aria-pressed="${j.feedback==="not"}">✕ לא רלוונטי</button>
+          <button class="fb sent" data-act="applied" aria-pressed="${!!j.applied}">${j.applied?"✉ נשלחו קו״ח":"✉ שלחתי קו״ח"}</button>
+          ${j.applied?`<select class="stage ${j.stage?"st-"+esc(j.stage):""}" aria-label="שלב בתהליך"><option value="">מה קרה מאז? ▾</option>${Object.entries(STAGES).map(([k,t])=>`<option value="${k}" ${j.stage===k?"selected":""}>${t}</option>`).join("")}</select>`:""}
+          ${j.company?`<a class="fb people" href="https://www.linkedin.com/search/results/people/?keywords=${encodeURIComponent(String(j.company).replace(/\(.*?\)/g,"").split("·")[0].trim())}" target="_blank" rel="noopener" title="חיפוש אנשים בחברה בלינקדאין" aria-label="חיפוש אנשים בחברה בלינקדאין">${LIC}</a>`:""}
+          ${byMail(j)?`<button class="fb mail" data-mail="1" aria-expanded="${openMail.has(j.id)}">${openMail.has(j.id)?"✕ סגירת הנוסח":"✎ נוסח למייל"}</button>`:""}
+          ${j.note?`<div class="notetxt">${esc(j.note)}</div>`:""}
+        </div>
+        ${byMail(j)&&openMail.has(j.id)?mailBox(j):""}
+      </article>`;
+    }catch(err){ console.error("render job",j&&j.id,err); return `<article class="job" data-id="${esc(j&&j.id)}"><h3><a href="${esc(safeUrl(j&&j.url))}" target="_blank" rel="noopener">${esc((j&&j.title)||"משרה")}</a></h3><div class="company">${esc(j&&j.company)}</div><p class="hint">לא הצלחתי להציג את כל פרטי המשרה הזו.</p></article>`; } }).join("");
+  }
+  function reqBlock(j){
+    const r=arr(j.reqs).map(x=>typeof x==="object"&&x?{t:x.t||x.text||"",s:x.s||x.status||"?"}:{t:String(x),s:"?"}), y=r.filter(x=>x.s==="yes").length, p=r.filter(x=>x.s==="partial").length;
+    const ic={yes:"✓",no:"✗",partial:"½"};
+    return `<div class="field reqs"><b>דרישות חובה: ${y} מתוך ${r.length}${p?` (+${p} חלקית)`:""}</b><ul>${r.map(x=>`<li class="rq-${esc(x.s)}"><span class="ic">${ic[x.s]||"?"}</span>${esc(x.t)}</li>`).join("")}</ul></div>`;
+  }
+  const REASONS=["תחום לא מתאים","סוג תפקיד לא מתאים","בכיר מדי","זוטר מדי","מיקום / נסיעות","דרישות שאין לי","שכר","הארגון לא מתאים לי"];
+  function reasonBox(){
+    return `<div class="reasonbox"><b>למה זה לא מתאים? (אפשר לבחור כמה, לא חובה)</b><div class="chips">${REASONS.map(r=>`<button class="wchip" data-r="${esc(r)}">${esc(r)}</button>`).join("")}</div><input type="text" class="rtext" placeholder="סיבה אחרת או פירוט (לא חובה)"><div class="row"><button class="btn primary" data-rsave="1">שמירה</button><button class="btn" data-rskip="1">דילוג</button><button class="btn" data-rcancel="1">ביטול</button></div></div>`;
+  }
+  const STAGES={contacted:"📞 יצרו קשר",interview:"📅 נקבע ריאיון עבודה",hired:"🎉 התקבלתי",rejected:"לא התקבלתי"};
+  let toastT;
+  function toast(){
+    let t=document.getElementById("cvToast");
+    if(!t){ t=document.createElement("div"); t.id="cvToast"; t.setAttribute("role","status"); t.innerHTML="<b>שימו לב</b><span>לא לשכוח לצרף קורות חיים למייל</span>"; document.body.appendChild(t); }
+    t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),10000);
+  }
+  function mailBox(j){
+    const m=j.coverEmail, isEn=m.lang==="en";
+    return `<div class="mailbox" data-id="${esc(j.id)}">
+      ${m.to?`<div><label>למי שולחים</label><p class="q" dir="ltr" style="text-align:right">${esc(m.to)}</p></div>`:`<p class="q" style="color:var(--muted)">לא פורסם מייל למשרה הזו. אפשר להדביק את הנוסח בטופס ההגשה או במייל למגייס/ת.</p>`}
+      <div><label>נושא</label><input type="text" class="subj" dir="${isEn?"ltr":"rtl"}" value="${esc(m.subject||"")}"></div>
+      <div><label>המייל (אפשר לערוך כאן חופשי)</label><textarea class="body" dir="${isEn?"ltr":"rtl"}" style="min-height:340px;line-height:1.6">${esc(m.body||"")}</textarea></div>
+      <div class="row"><button class="btn primary" data-copy="1">העתקת תוכן המייל</button><button class="btn" data-close="1">✕ סגירה</button><span class="ok" aria-live="polite"></span></div>
+    </div>`;
+  }
+  function renderCrit(){
+    const chip=(arr,cls,key)=>arr.map((t,i)=>`<span class="chip ${cls}">${esc(t)}<button aria-label="הסרה" data-k="${key}" data-i="${i}">×</button></span>`).join("");
+    $("#incChips").innerHTML=chip(crit.include||[],"","include");
+    $("#excChips").innerHTML=chip(crit.exclude||[],"x","exclude");
+    if(document.activeElement!==$("#refine")) $("#refine").value=crit.refinements||"";
+  }
+
+  async function saveCrit(msg){
+    if(!db) return;
+    try{ await db.doc("settings/criteria").set({...crit,updatedAt:new Date().toISOString()}); $("#critStatus").textContent=msg||"נשמר"; }
+    catch(e){ $("#critStatus").textContent="השמירה נכשלה. נסי שוב בעוד רגע."; }
+  }
+  function addTo(key,inp){
+    const t=inp.value.trim(); if(!t) return;
+    crit[key]=[...(crit[key]||[]),t]; inp.value=""; renderCrit(); saveCrit("נוסף");
+  }
+
+  // ---- WhatsApp message builder ----
+  // personal details come from settings/profile in your own database (nothing personal is stored in the code)
+  let PROFILE={name:"",fullName:"",phone:"",linkedin:"",baseExp:"",edu:"",area:"מרכז, היברידי",worlds:[]};
+  let WORLDS=[], BASE_EXP="", EDU="", SIG="", LI="";
+  function applyProfile(p){
+    PROFILE=Object.assign(PROFILE,p||{});
+    WORLDS=Array.isArray(PROFILE.worlds)?PROFILE.worlds:[];
+    BASE_EXP=PROFILE.baseExp||""; EDU=PROFILE.edu||""; SIG=PROFILE.phone||""; LI=PROFILE.linkedin||"";
+    const t="סוכן המשרות"+(PROFILE.name?" של "+PROFILE.name:"");
+    document.title=t; const h=$("#siteTitle"); if(h) h.textContent=t;
+    try{ if(typeof waChips==="function"&&$("#waOut")){ waChips(); waBuild(); } }catch(_){}
+    try{ renderDash(); }catch(_){}
+  }
+  let waSel=new Set(["health","tech"]), waStyle="list";
+  try{ const st=JSON.parse(localStorage.getItem("wa")||"null"); if(st){ waSel=new Set(st.sel||[]); waStyle=st.style||"list"; } }catch(_){}
+  const joinHe=a=>a.length<2?(a[0]||""):a.slice(0,-1).join(", ")+" ו"+a[a.length-1];
+  function waBuild(){
+    const ws=WORLDS.filter(w=>waSel.has(w.k)), custom=$("#waCustom").value.trim(), name=$("#waName").value.trim();
+    const worlds=ws.map(w=>w.w).concat(custom?[custom]:[]);
+    const roles=ws.length?[...new Set(ws.map(w=>w.r))]:["הטמעת מערכות","ניהול תוכניות ותהליכי שינוי","ניהול תפעול"];
+    const hi=name?`היי ${name} 👋`:"היי 👋";
+    const ex=ws.map(w=>w.e);
+    let m;
+    if(waStyle==="list"){
+      m=`${hi}\n\nאני מציעה: את עצמי, ${PROFILE.fullName||PROFILE.name}\nמחפשת בתפקידים: ${roles.join(", ")}\nניסיון: ${BASE_EXP}\nהשכלה: ${EDU}\n`+
+        (worlds.length?`מחפשת בעולמות: ${worlds.join(", ")}\n`:"")+
+        `אזור: ${PROFILE.area||""}\n`+(ex.length?`\n${ex.join("\n")}\n`:"")+
+        `\nקורות החיים מצורפים. אשמח לכל חיבור 🙏\n${SIG}\n${LI}`;
+    } else {
+      m=`${hi.replace(" 👋","")}, כאן ${PROFILE.fullName||PROFILE.name} 👋\n\nיש לי ${BASE_EXP.replace("כ-20 שנה ב","כ-20 שנות ניסיון ב")}. בעלת MBA במנהל עסקים ומנהיגות חברתית (תוכנית מנדל).`+
+        (ex.length?` ${ex.join(" ")}`:"")+
+        `\n\nאני מחפשת את התפקיד הבא שלי: ${joinHe(roles)}`+(worlds.length?`, בעיקר בתחומי ${joinHe(worlds)}`:"")+`.\nמרכז או היברידי, משרה מלאה.\n\nמצרפת את קורות החיים שלי. אשמח לכל חיבור או הזדמנות שנראית לכם מתאימה 🙏\n\n${PROFILE.name} | ${SIG}\n${LI}`;
+    }
+    $("#waOut").value=m;
+    try{ localStorage.setItem("wa",JSON.stringify({sel:[...waSel],style:waStyle})); }catch(_){}
+  }
+  function waChips(){
+    $("#waWorlds").innerHTML=WORLDS.map(w=>`<button class="wchip ${waSel.has(w.k)?"on":""}" data-w="${w.k}" aria-pressed="${waSel.has(w.k)}">${esc(w.t)}</button>`).join("");
+    document.querySelectorAll("#waStyle .wchip").forEach(b=>b.classList.toggle("on",b.dataset.st===waStyle));
+  }
+  $("#waWorlds").addEventListener("click",e=>{const b=e.target.closest("[data-w]"); if(!b) return; const k=b.dataset.w; waSel.has(k)?waSel.delete(k):waSel.add(k); waChips(); waBuild();});
+  $("#waStyle").addEventListener("click",e=>{const b=e.target.closest("[data-st]"); if(!b) return; waStyle=b.dataset.st; waChips(); waBuild();});
+  let wt; ["#waCustom","#waName"].forEach(s=>$(s).addEventListener("input",()=>{clearTimeout(wt); wt=setTimeout(waBuild,400);}));
+  $("#waReset").onclick=waBuild;
+  $("#waCopy").onclick=async()=>{ const t=$("#waOut").value; let ok=false; try{await navigator.clipboard.writeText(t); ok=true;}catch(_){}
+    if(!ok){ const ta=$("#waOut"); ta.select(); try{ok=document.execCommand("copy");}catch(_){} }
+    $("#waOk").textContent=ok?"הועתק ✓":"סמני את הטקסט והעתיקי ידנית"; toast(); };
+  waChips(); waBuild();
+  document.addEventListener("click",e=>{ if(e.target.id==="archBtn"){ showArch=!showArch; render(); } });
+  $("#addJobBtn").onclick=async()=>{
+    const url=$("#addUrl").value.trim(), text=$("#addText").value.trim(), note=$("#addNote").value.trim(), st=$("#addStatus");
+    if(!url&&!text){ st.textContent="צריך קישור או טקסט של מודעה"; return; }
+    if(!db){ st.textContent="אין חיבור לשמירה כרגע"; return; }
+    try{ await db.collection("inbox").add({url,text,note,status:"pending",addedAt:new Date().toISOString()}); $("#addUrl").value=""; $("#addText").value=""; $("#addNote").value=""; st.textContent="נוספה ✓ הסריקה הבאה תעבד אותה"; }
+    catch(_){ st.textContent="השמירה נכשלה, נסי שוב"; }
+  };
+  document.querySelectorAll("[data-mode]").forEach(b=>b.onclick=()=>{ document.querySelectorAll("[data-mode]").forEach(x=>x.classList.toggle("on",x===b)); $("#modeJob").style.display=b.dataset.mode==="job"?"grid":"none"; $("#modeSite").style.display=b.dataset.mode==="site"?"grid":"none"; });
+  $("#addSiteBtn").onclick=async()=>{ const url=$("#siteUrl").value.trim(), note=$("#siteNote").value.trim(), st=$("#siteStatus");
+    if(!/^https?:\/\//.test(url)){ st.textContent="צריך קישור שמתחיל ב-https://"; return; }
+    if(!db){ st.textContent="אין חיבור לשמירה כרגע"; return; }
+    try{ await db.collection("sourceInbox").add({url,note,status:"pending",addedAt:new Date().toISOString()}); $("#siteUrl").value=""; $("#siteNote").value=""; st.textContent="נוסף ✓ ייסרק מהסריקה הבאה"; }catch(_){ st.textContent="השמירה נכשלה, נסי שוב"; } };
+  const BASE_SRC=[
+    ["לינקדאין",[["מודעות דרושים לפי מילות חיפוש, באזור המרכז","https://www.linkedin.com/jobs/"],["פוסטים של מגייסים ושל אנשים שאת עוקבת אחריהם","https://www.linkedin.com/search/results/content/?keywords=%D7%9E%D7%92%D7%99%D7%99%D7%A1%D7%99%D7%9D"]]],
+    ["המייל שלך",[["התראות משרות של AllJobs ולינקדאין ב-Gmail","https://mail.google.com/"]]],
+    ["קבוצות פייסבוק",[["משרות מערכות מידע – הדרכה והטמעה","https://www.facebook.com/groups/325601590911597/"],["משרות יישום, הדרכה והטמעה","https://www.facebook.com/groups/1256316871138271/"],["משרות שוות בהייטק – חבר מביא חבר","https://www.facebook.com/groups/1515201158578678/"],["משרות עילאיות ומתנשאות","https://www.facebook.com/groups/Good.people.Good.jobs/"],["משרות חברתיות בתחומי השיקום, החינוך והטיפול","https://www.facebook.com/groups/1438489106405930/"],["משרות חברתיות (מגזר ציבורי, שלישי ורביעי)","https://www.facebook.com/groups/misrot.hevratiot/"],["ציונות בפעולה","https://www.facebook.com/groups/ZionismInAction/"]]],
+    ["ארגונים שסימנת",[["הג'וינט","https://thejoint.org.il/career/"],["לוטם","https://lotem.co.il/jobs/"],["עמותת מחווה","https://mehva.org.il"],["משרד הבריאות – טכנולוגיות ודאטה","https://techjobs.health.gov.il/main#positions"],["נגישות ישראל","https://aisrael.org/"],["ריסטארט","https://restartglobal.org/"],["אלי״ן","https://www.alyn.org.il/"],["בית איזי שפירא","https://beitissie.org.il/"],["TOM","https://jobs.jpro.org/companies/tom-tikkun-olam-makers-2"],["OneStep","https://onestep.co/company/careers"],["monday.com","https://monday.com/careers"],["התעשייה האווירית (דרך לינקדאין)","https://www.linkedin.com/company/israel-aerospace-industries/jobs/"],["שיבא – מכרזים","https://www.sheba.co.il/general/employees/tenders"],["איכילוב","https://www.alljobs.co.il/Employer/HP/Default.aspx?cid=41441"]]]];
+  let EXTRA=[], SRCPEND=[];
+  function renderSrc(){ const safe=u=>/^https?:\/\//.test(String(u||""))?esc(u):"#";
+    const li=([t,u])=>`<li><a href="${safe(u)}" target="_blank" rel="noopener">${esc(t)}</a></li>`;
+    const extra=EXTRA.filter(x=>x&&x.name&&!/inbox|שדות חובה|HOW TO|הוראות/i.test(x.name));
+    const n=BASE_SRC.reduce((a,g)=>a+g[1].length,0)+extra.length+SRCPEND.length;
+    $("#n-src").textContent=n;
+    $("#srcList").innerHTML=BASE_SRC.map(([g,items])=>`<div class="srcgrp"><h3>${esc(g)}</h3><ul>${items.map(li).join("")}</ul></div>`).join("")
+      +(extra.length?`<div class="srcgrp"><h3>מקורות שהוספנו בהמשך</h3><ul>${extra.map(x=>li([x.name,x.url])).join("")}</ul></div>`:"")
+      +(SRCPEND.length?`<div class="srcgrp"><h3>הוספת ועדיין לא נסרקו</h3><ul>${SRCPEND.map(x=>`<li class="pend"><a href="${safe(x.url)}" target="_blank" rel="noopener" dir="ltr">${esc(x.url.slice(0,70))}</a>${x.note?" · "+esc(x.note):""} · ממתין לסריקה הבאה</li>`).join("")}</ul></div>`:"")
+      +`<p class="hint">להוספת אתר: במסך הראשי, "הוספה" ← "אתר שהסוכן יסרוק".</p>`; }
+  renderSrc();
+
+  // ---- views ----
+  function setView(v,opts){ opts=opts||{};
+    document.querySelectorAll(".nav [data-view]").forEach(b=>{ if(b.dataset.view===v) b.setAttribute("aria-current","page"); else b.removeAttribute("aria-current"); });
+    $("#viewHome").hidden=v!=="home"; $("#viewJobs").hidden=v!=="jobs"; $("#viewSettings").hidden=v!=="settings"; $("#viewPath").hidden=v!=="path";
+    if(opts.filter){ filter=opts.filter; document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-pressed",String(t.dataset.f===filter))); $("#subBar").hidden=filter!=="relevant"; }
+    if(opts.sub){ sub=opts.sub; document.querySelectorAll(".stab").forEach(t=>t.setAttribute("aria-pressed",String(t.dataset.s===sub))); }
+    if(opts.filter||opts.sub) render();
+    try{ localStorage.setItem("view",v); }catch(_){}
+    window.scrollTo({top:0});
+  }
+  document.querySelector(".nav").addEventListener("click",e=>{ const b=e.target.closest("[data-view]"); if(b) setView(b.dataset.view); });
+  try{ const v=localStorage.getItem("view"); if(v&&v!=="home") setView(v); }catch(_){}
+  // close button at the bottom of every panel
+  document.querySelectorAll("details.panel").forEach(d=>{ const c=document.createElement("div"); c.className="closebar"; c.innerHTML='<button class="btn" type="button">✕ סגירה</button>';
+    c.querySelector("button").onclick=()=>{ d.open=false; d.scrollIntoView({block:"nearest",behavior:"smooth"}); }; d.appendChild(c); });
+
+  // ---- dashboard ----
+  let GOAL=5;
+  try{ GOAL=+localStorage.getItem("goal")||5; }catch(_){}
+  const DAY=864e5;
+  const dayKey=d=>{ const x=new Date(d); return x.getFullYear()+"-"+(x.getMonth()+1)+"-"+x.getDate(); };
+  const startOfDay=d=>{ const x=new Date(d); x.setHours(0,0,0,0); return x; };
+  function foundTime(j){ if(j.foundAtIso){ const t=Date.parse(j.foundAtIso); if(!isNaN(t)) return {t,exact:true}; }
+    if(j.foundAt){ const m=String(j.foundAt).match(/^(\d{4})-(\d{2})-(\d{2})/); if(m) return {t:new Date(+m[1],+m[2]-1,+m[3]).getTime(),exact:false}; } return null; }
+  function actions(){ const A=[]; jobs.forEach(j=>{ if(j.appliedAt) A.push({t:Date.parse(j.appliedAt),k:"applied"}); if(j.feedbackAt&&j.feedback) A.push({t:Date.parse(j.feedbackAt),k:j.feedback}); if(j.stageAt) A.push({t:Date.parse(j.stageAt),k:"stage"}); }); return A.filter(a=>!isNaN(a.t)); }
+  const median=a=>{ if(!a.length) return null; const b=a.slice().sort((x,y)=>x-y), m=b.length>>1; return b.length%2?b[m]:(b[m-1]+b[m])/2; };
+  function fmtDur(ms,exact){ if(ms==null) return "—"; const h=ms/36e5;
+    if(exact&&h<1) return "פחות משעה"; if(exact&&h<24) return Math.round(h)+" שעות";
+    const d=ms/DAY; return d<0.5?"באותו יום":d<1.5?"יום אחד":(Math.round(d*10)/10).toString().replace(/\.0$/,"")+" ימים"; }
+  function renderDash(){
+    if(!$("#tiles")) return;
+    const now=new Date(), hr=now.getHours();
+    $("#hello").textContent=(hr<12?"בוקר טוב":hr<17?"צהריים טובים":hr<21?"ערב טוב":"לילה טוב")+(PROFILE.name?", "+PROFILE.name:"");
+    const c={new:0,relevant:0,applied:0,not:0}; jobs.forEach(j=>{ if(j.applied)c.applied++; if(j.feedback==="relevant")c.relevant++; else if(j.feedback==="not")c.not++; else if(!j.applied)c.new++; });
+    const todo=jobs.filter(j=>j.feedback==="relevant"&&!j.applied).length;
+    const nb=$("#navNew"); nb.hidden=!c.new; nb.textContent=c.new;
+    // week (starts Sunday)
+    const ws=startOfDay(now); ws.setDate(ws.getDate()-ws.getDay());
+    const weekApplied=jobs.filter(j=>j.appliedAt&&Date.parse(j.appliedAt)>=ws.getTime()).length;
+    // stages
+    const st=k=>jobs.filter(j=>j.applied&&j.stage===k).length;
+    const interview=st("interview")+st("hired"), contacted=st("contacted")+interview, hired=st("hired");
+    // cheer
+    let msg, go=null;
+    if(hired) msg="🎉 התקבלת! כל העבודה הזו השתלמה.";
+    else if(interview){ msg=`📅 יש לך ${interview===1?"ריאיון":interview+" ריאיונות"} בדרך. זה הסימן שזה עובד – שווה להתכונן.`; go=["למשרות ששלחת ←","applied"]; }
+    else if(weekApplied>=GOAL) msg=`🌟 עמדת ביעד השבועי: ${weekApplied} הגשות השבוע. כל הכבוד!`;
+    else if(c.new){ msg=`${c.new} משרות חדשות מחכות לך. כמה דקות של סימון, והסוכן מדייק את הסריקה הבאה.`; go=["לסימון המשרות החדשות ←","new"]; }
+    else if(todo){ msg=`${todo} משרות שסימנת כרלוונטיות מחכות לקו״ח שלך. כל הגשה פותחת דלת.`; go=["למשרות שמחכות לקו״ח ←","todo"]; }
+    else if(c.applied) msg=`${c.applied} הגשות עד עכשיו – כל אחת מהן היא הזדמנות שעוד יכולה לצמוח.`;
+    else msg="הסוכן כבר עובד בשבילך. סמני כמה משרות, והוא ילמד מה מתאים לך.";
+    $("#cheer").textContent=msg; const g=$("#cheerGo"); g.hidden=!go; if(go){ g.textContent=go[0]; g.onclick=()=>go[1]==="todo"?setView("jobs",{filter:"relevant",sub:"todo"}):setView("jobs",{filter:go[1],sub:"any"}); }
+    // tiles
+    const T=[["new","חדשות","מחכות לסימון","var(--warn)"],["relevant","רלוונטיות",todo?`${todo} מחכות לקו״ח`:"כולן טופלו ✓","var(--good)"],["applied","שלחתי קו״ח",weekApplied?`${weekApplied} השבוע`:"","var(--accent)"],["not","לא רלוונטיות","עוזרות לסוכן לדייק","var(--bad)"]];
+    $("#tiles").innerHTML=T.map(([k,l,sb,col])=>`<button class="tile" data-go="${k}" style="--c:${col}"><span class="v">${c[k]}</span><span class="l">${l}</span><span class="s">${esc(sb)}</span></button>`).join("");
+    // ring
+    const pct=Math.min(1,weekApplied/Math.max(1,GOAL)), R=44, C=2*Math.PI*R;
+    $("#ring").innerHTML=`<circle cx="52" cy="52" r="${R}" fill="none" stroke="var(--line)" stroke-width="10"/>${pct>0?"":"<!--"}<circle cx="52" cy="52" r="${R}" fill="none" stroke="${pct>=1?"var(--good)":"var(--accent)"}" stroke-width="10" stroke-linecap="round" stroke-dasharray="${C*pct} ${C}" transform="rotate(-90 52 52)"/>${pct>0?"":"-->"}<text x="52" y="52" text-anchor="middle" class="lbl">${weekApplied}/${GOAL}</text><text x="52" y="70" text-anchor="middle" class="sub">השבוע</text>`;
+    $("#ring").setAttribute("aria-label",`${weekApplied} מתוך ${GOAL} הגשות השבוע`);
+    $("#goalN").textContent=GOAL;
+    const left=GOAL-weekApplied;
+    $("#goalTxt").textContent=left<=0?"עמדת ביעד! 🎉":weekApplied===0?"שבוע חדש, דף חדש. הגשה אחת ואת בדרך.":left===1?"עוד הגשה אחת ליעד!":`עוד ${left} הגשות ליעד. את בדרך.`;
+    // streak + dots + bars
+    const A=actions(), per={}; A.forEach(a=>{ const k=dayKey(a.t); per[k]=(per[k]||0)+1; });
+    const wsd=startOfDay(now); wsd.setDate(wsd.getDate()-wsd.getDay());
+    const wk=[...Array(7)].map((_,i)=>new Date(wsd.getTime()+i*DAY)), DN=["א׳","ב׳","ג׳","ד׳","ה׳","ו׳","ש׳"], tk=dayKey(now);
+    const active=wk.filter(x=>per[dayKey(x)]).length, todayOn=!!per[tk];
+    $("#streakN").textContent=active; $("#streakL").textContent=active===1?"יום פעיל השבוע":"ימים פעילים השבוע";
+    $("#fire").style.filter=active?"none":"grayscale(1) opacity(.45)";
+    $("#streakHint").textContent=todayOn?"היום כבר סימנת ✓":active?"סימון אחד היום מוסיף עוד יום פעיל":"סימון אחד היום פותח את השבוע";
+    $("#dots").innerHTML=wk.map((x,i)=>{ const k=dayKey(x), n=per[k]||0, fut=x.getTime()>now.getTime()&&k!==tk; return `<div class="d ${n?"on":""} ${k===tk?"today":""} ${fut?"future":""}" title="${x.getDate()}.${x.getMonth()+1}: ${n} סימונים"><i>${n?n:""}</i><span>${DN[i]}</span></div>`; }).join("");
+    // fit by score
+    const fc=[5,4,3,2,1].map(k=>[k,jobs.filter(j=>Math.max(1,Math.min(5,Math.round(j.score||3)))===k).length]).filter(([k,n])=>k>=3||n);
+    const fm=Math.max(1,...fc.map(x=>x[1]));
+    $("#fit").innerHTML=fc.map(([k,n])=>`<div class="row"><span class="sc">${k}/5</span><span class="track"><span style="width:${n?Math.max(3,n/fm*100):0}%;opacity:${k===5?1:k===4?.8:.55}"></span></span><span class="n">${n}</span></div>`).join("");
+    // journey
+    const J=[["שלחתי קו״ח",c.applied,""],["יצרו קשר",contacted,""],["ריאיון",interview,""],["התקבלתי",hired,"win"]];
+    $("#journey").innerHTML=J.map(([l,n,cls])=>`<div class="step ${cls} ${n?"on":""}"><span class="v">${n}</span><span class="l">${l}</span></div>`).join("");
+    $("#journeyHint").textContent=hired?"הגעת לקו הסיום 🎉":interview?"את כבר בשלב הריאיונות – זה המקום שבו הניסיון שלך מדבר.":contacted?"כבר חזרו אלייך – סימן שהפרופיל שלך מעניין.":c.applied?"ההגשות בדרך. כשמישהו חוזר אלייך, עדכני את השלב בכרטיס המשרה.":"כשתשלחי קו״ח, המסע שלך יתחיל להתמלא כאן.";
+    // speed
+    const S={relevant:[],not:[],applied:[]}; let anyExact={relevant:false,not:false,applied:false};
+    jobs.forEach(j=>{ const f=foundTime(j); if(!f) return;
+      const add=(k,iso)=>{ const t=Date.parse(iso); if(isNaN(t)) return; let dt=t-f.t; if(!f.exact){ dt=startOfDay(t).getTime()-f.t; } if(dt<0) dt=0; S[k].push(dt); if(f.exact) anyExact[k]=true; };
+      if(j.feedback==="relevant"&&j.feedbackAt) add("relevant",j.feedbackAt);
+      if(j.feedback==="not"&&j.feedbackAt) add("not",j.feedbackAt);
+      if(j.appliedAt) add("applied",j.appliedAt); });
+    const SP=[["relevant","✓ רלוונטי","var(--good)"],["applied","✉ שלחתי קו״ח","var(--accent)"],["not","✕ לא רלוונטי","var(--bad)"]];
+    const avg=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+    $("#speed").innerHTML=`<div class="speedg">${SP.map(([k,l,col])=>`<div class="sbox" style="--c:${col}"><span class="v">${fmtDur(avg(S[k]),anyExact[k])}</span><span class="l">${l.replace(/^[✓✉✕] /,"")}</span></div>`).join("")}</div>`;
+  }
+  document.addEventListener("click",e=>{ const t=e.target.closest("[data-go]"); if(t) setView("jobs",{filter:t.dataset.go,sub:"any"}); });
+  $("#goalMinus").onclick=()=>{ GOAL=Math.max(1,GOAL-1); try{localStorage.setItem("goal",GOAL);}catch(_){} if(db) db.doc("settings/prefs").set({weeklyGoal:GOAL}).catch(()=>{}); renderDash(); };
+  $("#goalPlus").onclick=()=>{ GOAL=Math.min(30,GOAL+1); try{localStorage.setItem("goal",GOAL);}catch(_){} if(db) db.doc("settings/prefs").set({weeklyGoal:GOAL}).catch(()=>{}); renderDash(); };
+  let COURSES=[];
+  const CST={want:"מעניין אותי",enrolled:"נרשמתי",not:"לא מתאים"};
+  function renderCourses(){ const el=$("#courses"); if(!el) return;
+    if(!COURSES.filter(c=>c.open!==false).length){ el.innerHTML='<p class="hint">כרגע אין קורס מתאים עם הרשמה פתוחה. הסוכן בודק בכל סריקה ויוסיף כאן ברגע שתיפתח הרשמה.</p>'; return; }
+    const v=COURSES.filter(c=>c.open!==false).sort((a,b)=>(a.status==="not")-(b.status==="not")||(b.addedAt||"").localeCompare(a.addedAt||""));
+    el.innerHTML=v.map(c=>`<div class="course ${c.status?"st-"+esc(c.status):""}" data-cid="${esc(c.id)}">
+      <h4><a href="${esc(safeUrl(c.url))}" target="_blank" rel="noopener">${esc(c.title)}</a></h4>
+      ${c.org?`<div class="org">${esc(c.org)}</div>`:""}
+      ${c.teaches?`<div class="field"><b>מה לומדים</b><p>${esc(c.teaches)}</p></div>`:""}
+      <dl class="kv cinfo">${[["פורמט",c.format],["מתי",c.schedule],["היקף",c.length],["פתיחה",c.start],["עלות",c.cost],["למי מתאים",c.eligibility]].filter(x=>x[1]).map(([k,v])=>`<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>
+      ${c.why?`<p class="why"><b>למה זה מתאים לך:</b> ${esc(c.why)}</p>`:""}
+      ${c.checkedAt?`<p class="hint" style="margin:0">ההרשמה נבדקה ב-${esc(fmtDate(c.checkedAt))} · <a href="${esc(safeUrl(c.url))}" target="_blank" rel="noopener">לדף ההרשמה ←</a></p>`:""}
+      <div class="row">${Object.entries(CST).map(([k,t])=>`<button class="fb" data-cst="${k}" aria-pressed="${c.status===k}">${t}</button>`).join("")}</div>
+    </div>`).join(""); }
+  $("#courses").addEventListener("click",async e=>{ const b=e.target.closest("[data-cst]"); if(!b) return; const id=b.closest(".course").dataset.cid, c=COURSES.find(x=>x.id===id); if(!c) return;
+    c.status=c.status===b.dataset.cst?null:b.dataset.cst; renderCourses(); if(db) try{ await db.doc("courses/"+id).update({status:c.status,statusAt:new Date().toISOString()}); }catch(_){} });
+  function renderRules(){ const el=$("#setRules"); if(!el) return; const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+    const ch=(a,x)=>`<div class="chips">${(a||[]).map(t=>`<span class="chip ${x}">${esc(t)}</span>`).join("")}</div>`;
+    el.innerHTML=`${(crit.include||[]).length?`<div><b>מה מעניין אותי</b>${ch(crit.include,"")}</div>`:""}${(crit.exclude||[]).length?`<div><b>מה לא</b>${ch(crit.exclude,"x")}</div>`:""}${crit.refinements?`<div><b>הערות לסוכן</b><p style="white-space:pre-wrap;margin:0">${esc(crit.refinements)}</p></div>`:""}`; }
+  $("#addIncBtn").onclick=()=>addTo("include",$("#addInc"));
+  $("#addExcBtn").onclick=()=>addTo("exclude",$("#addExc"));
+  $("#addInc").onkeydown=e=>{if(e.key==="Enter")addTo("include",e.target)};
+  $("#addExc").onkeydown=e=>{if(e.key==="Enter")addTo("exclude",e.target)};
+  document.querySelector("#critPanel .crit").addEventListener("click",e=>{
+    const b=e.target.closest("button[data-k]"); if(!b) return;
+    const k=b.dataset.k; crit[k]=(crit[k]||[]).filter((_,i)=>i!==+b.dataset.i); renderCrit(); saveCrit("הוסר");
+  });
+  let rt; $("#refine").addEventListener("input",e=>{ crit.refinements=e.target.value; clearTimeout(rt); rt=setTimeout(()=>saveCrit(),900); });
+
+  document.querySelector(".bar").addEventListener("click",e=>{
+    const b=e.target.closest(".tab"); if(!b) return;
+    filter=b.dataset.f; document.querySelectorAll(".tab").forEach(t=>t.setAttribute("aria-pressed",String(t===b))); $("#subBar").hidden=filter!=="relevant"; render();
+  });
+  $("#subBar").addEventListener("click",e=>{
+    const b=e.target.closest(".stab"); if(!b) return;
+    sub=b.dataset.s; document.querySelectorAll(".stab").forEach(t=>t.setAttribute("aria-pressed",String(t===b))); render();
+  });
+  $("#list").addEventListener("focusout",()=>{ setTimeout(()=>{ const ae=document.activeElement; if(pendingRender&&!busy&&!(ae&&$("#list").contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName))){ pendingRender=false; render(); } },300); });
+  $("#list").addEventListener("input",e=>{
+    const t=e.target.closest(".mailbox .body, .mailbox .subj"); if(!t) return;
+    const box=t.closest(".mailbox"), j=jobs.find(x=>x.id===box.dataset.id); if(!j) return;
+    j.coverEmail.body=box.querySelector(".body").value; j.coverEmail.subject=box.querySelector(".subj").value;
+  });
+  $("#list").addEventListener("click",async e=>{
+    const mb=e.target.closest("[data-mail]");
+    if(mb){ const id=mb.closest(".job").dataset.id; openMail.has(id)?openMail.delete(id):openMail.add(id); render(); return; }
+    const box=e.target.closest(".mailbox");
+    if(box){
+      const j=jobs.find(x=>x.id===box.dataset.id); if(!j) return;
+      if(e.target.closest("[data-close]")){ openMail.delete(j.id); render(); return; }
+      const subj=box.querySelector(".subj").value, body=box.querySelector(".body").value, ok=box.querySelector(".ok");
+      if(e.target.closest("[data-copy]")){
+        const txt=body; let done=false;
+        try{ await navigator.clipboard.writeText(txt); done=true; }catch(_){}
+        if(!done){ const ta=document.createElement("textarea"); ta.value=txt; document.body.appendChild(ta); ta.select(); try{done=document.execCommand("copy");}catch(_){} ta.remove(); }
+        ok.textContent=done?"הועתק ✓":"לא הצלחתי להעתיק, סמני את הטקסט והעתיקי ידנית";
+        toast();
+      }
+      const a=e.target.closest("[data-open]");
+      if(a){ a.href="mailto:"+encodeURIComponent(j.coverEmail.to||"")+"?subject="+encodeURIComponent(subj)+"&body="+encodeURIComponent(body); }
+      return;
+    }
+    const rb=e.target.closest(".reasonbox");
+    if(rb){
+      const card=rb.closest(".job"), j=jobs.find(x=>x.id===card.dataset.id); if(!j) return;
+      const chip=e.target.closest("[data-r]"); if(chip){ chip.classList.toggle("on"); return; }
+      if(e.target.closest("[data-rcancel]")){ rb.remove(); busy=false; $("#list").classList.remove("locked"); return; }
+      if(e.target.closest("[data-rsave]")||e.target.closest("[data-rskip]")){
+        const skip=!!e.target.closest("[data-rskip]");
+        const rs=skip?[]:[...rb.querySelectorAll("[data-r].on")].map(x=>x.dataset.r), t=skip?"":rb.querySelector(".rtext").value.trim();
+        const extra={}; if(rs.length) extra.notReasons=rs;
+        const txt=[rs.join(", "),t].filter(Boolean).join(" · "); if(txt) extra.note=j.note?j.note+" · "+txt:txt;
+        rb.remove(); busy=false; $("#list").classList.remove("locked");
+        await applyFb(card,j,"not",extra); return;
+      }
+      return;
+    }
+    const b=e.target.closest(".fb"); if(!b||!db||busy||b.tagName==="A") return;
+    const card=b.closest(".job"), id=card.dataset.id, j=jobs.find(x=>x.id===id); if(!j) return;
+    if(b.dataset.act==="not"&&j.feedback!=="not"){
+      busy=true; $("#list").classList.add("locked");
+      card.querySelector(".actions").insertAdjacentHTML("afterend",reasonBox()); card.querySelector(".rtext").focus({preventScroll:true}); return;
+    }
+    await applyFb(card,j,b.dataset.act,{});
+  });
+  async function applyFb(card,j,actName,extra){
+    const id=j.id, b={dataset:{act:actName}};
+    applying=true;
+    let upd;
+    if(b.dataset.act==="applied"){
+      openMail.delete(id); const mbx=card.querySelector(".mailbox"); if(mbx) mbx.remove();
+      const mbt=card.querySelector("[data-mail]"); if(mbt){ mbt.setAttribute("aria-expanded","false"); mbt.textContent="✎ נוסח למייל"; }
+      const on=!j.applied; upd={applied:on,appliedAt:on?new Date().toISOString():null};
+      if(on&&!j.feedback){ upd.feedback="relevant"; upd.feedbackAt=new Date().toISOString(); }
+    } else {
+      upd={feedback:j.feedback===b.dataset.act?null:b.dataset.act,feedbackAt:new Date().toISOString()};
+    }
+    Object.assign(upd,extra);
+    Object.assign(j,upd);
+    const stays=view().some(x=>x.id===id);
+    busy=true; $("#list").classList.add("locked");
+    // show the choice right away on this card
+    const act=b.dataset.act, cleared=(act==="applied"?!j.applied:!j.feedback);
+    card.classList.add("flash","f-"+act);
+    card.querySelectorAll(".fb").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.act==="applied"?!!j.applied:x.dataset.act===j.feedback)));
+    const old=card.querySelector(".pick"); if(old) old.remove();
+    if(!cleared){ const p=document.createElement("span"); p.className="pick "+act; p.textContent="נשמר: "+(act==="relevant"?"✓ רלוונטי":act==="not"?"✕ לא רלוונטי":"✉ שלחתי קו״ח"); card.querySelector(".actions").prepend(p); }
+    try{ await db.doc("jobs/"+id).update(upd); }catch(_){}
+    await new Promise(r=>setTimeout(r,900));
+    if(!stays){
+      card.style.maxHeight=card.scrollHeight+"px"; card.offsetHeight;
+      card.classList.add("leaving");
+      await new Promise(r=>setTimeout(r,650));
+    }
+    applying=false; busy=false; $("#list").classList.remove("locked"); render();
+  }
+  $("#list").addEventListener("change",async e=>{
+    const sel=e.target.closest("select.stage");
+    if(sel&&db){ const card=sel.closest(".job"), id=card.dataset.id, j=jobs.find(x=>x.id===id); if(!j) return;
+      const v=sel.value||null; j.stage=v; j.stageAt=v?new Date().toISOString():null;
+      sel.className="stage"+(v?" st-"+v:""); card.classList.add("flash"); setTimeout(()=>card.classList.remove("flash"),900);
+      try{ await db.doc("jobs/"+id).update({stage:v,stageAt:j.stageAt}); }catch(_){}
+      render(); return; }
+    const mt=e.target.closest(".mailbox .body, .mailbox .subj");
+    if(mt&&db){ const box=mt.closest(".mailbox"), id=box.dataset.id, j=jobs.find(x=>x.id===id); if(!j) return;
+      const cm={...j.coverEmail,body:box.querySelector(".body").value,subject:box.querySelector(".subj").value};
+      try{ await db.doc("jobs/"+id).update({coverEmail:cm}); }catch(_){} return; }
+    const inp=e.target.closest(".note input"); if(!inp||!db) return;
+    const id=inp.closest(".job").dataset.id;
+    try{ await db.doc("jobs/"+id).update({note:inp.value.trim()}); }catch(_){}
+  });
+
+  function showLogin(){
+    const ov=$("#login"); ov.hidden=false; document.body.classList.add("locked-login");
+    $("#loginForm").onsubmit=async e=>{ e.preventDefault(); const st=$("#loginMsg"); st.textContent="מתחברת…";
+      try{ await window.Store.signIn($("#loginEmail").value.trim(), $("#loginPass").value); location.reload(); }
+      catch(err){ st.textContent="ההתחברות נכשלה. בדקי את המייל והסיסמה."; } };
+  }
+  function renderAccount(){
+    const m=$("#acctMode"); if(!m) return;
+    m.textContent = window.Store.mode==="supabase" ? "הנתונים נשמרים במסד הנתונים הפרטי שלך (Supabase). רק את רואה אותם." : "מצב ניסיון: הנתונים נשמרים רק בדפדפן הזה. כדי לשמור בענן, ממלאים את config.js לפי המדריך.";
+    window.Store.user().then(u=>{ if(u&&$("#acctUser")) $("#acctUser").textContent="מחוברת: "+u.email; }).catch(()=>{});
+  }
+  $("#expBtn").onclick=async()=>{ const data=await window.Store.exportAll(); const blob=new Blob([JSON.stringify(data,null,1)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="job-agent-backup-"+new Date().toISOString().slice(0,10)+".json"; document.body.appendChild(a); a.click(); a.remove(); };
+  $("#impFile").onchange=async e=>{ const f=e.target.files[0]; if(!f) return; const st=$("#impMsg"); st.textContent="מייבאת…";
+    try{ const n=await window.Store.importAll(JSON.parse(await f.text())); st.textContent="✓ יובאו "+n+" רשומות"; }catch(err){ console.error(err); st.textContent="הייבוא נכשל: הקובץ לא בפורמט הנכון."; } e.target.value=""; };
+  $("#outBtn").onclick=()=>window.Store.signOut();
+
+  (async()=>{
+    const timer=setTimeout(()=>{ if(!jobs.length) $("#lastRun").textContent="הנתונים עוד לא זמינים. נסי לרענן בעוד רגע."; },10000);
+    try{ db = await window.Store.init(); }catch(e){ console.error(e); db=null; }
+    if(!db){ clearTimeout(timer); showLogin(); return; }
+    renderAccount();
+    db.doc("settings/profile").onSnapshot(d=>{ if(d.exists) applyProfile(d.data()); },()=>{});
+    db.collection("jobs").onSnapshot(snap=>{
+      jobs=snap.docs.map(d=>({id:d.id,...d.data()}));
+      if(!snap.metadata.fromCache) clearTimeout(timer);
+      const ae=document.activeElement;
+      if(busy||(ae&&$("#list").contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName))) pendingRender=true; else render();
+    },()=>{ clearTimeout(timer); $("#lastRun").textContent="לא הצלחתי לטעון את המשרות."; });
+    db.collection("inbox").onSnapshot(snap=>{ const items=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status!=="done").sort((a,b)=>(b.addedAt||"").localeCompare(a.addedAt||""));
+      $("#inboxList").innerHTML=items.length?`<b>ממתינות לסריקה הבאה (${items.length}):</b><ul class="inbox">${items.map(x=>`<li>${esc((x.url||x.text||"").slice(0,90))}${(x.url||x.text||"").length>90?"…":""}</li>`).join("")}</ul>`:""; },()=>{});
+    db.collection("roles").onSnapshot(snap=>{ ROLES={}; snap.docs.forEach(d=>{ROLES[d.id]=(d.data()||{}).text||"";}); const ae=document.activeElement; if(!busy&&!(ae&&$("#list").contains(ae)&&/INPUT|TEXTAREA/.test(ae.tagName))) render(); },()=>{});
+    db.doc("settings/extraSources").onSnapshot(d=>{ EXTRA=d.exists?arr((d.data()||{}).items):[]; renderSrc(); },()=>{});
+    db.collection("courses").onSnapshot(snap=>{ COURSES=snap.docs.map(d=>({id:d.id,...d.data()})); renderCourses(); },()=>{});
+    db.collection("sourceInbox").onSnapshot(snap=>{ SRCPEND=snap.docs.map(d=>({id:d.id,...d.data()})).filter(x=>x.status==="pending"&&x.url); renderSrc(); },()=>{});
+    db.doc("settings/criteria").onSnapshot(d=>{ if(d.exists){ crit={include:[],exclude:[],refinements:"",...d.data()}; renderCrit(); renderRules(); } },()=>{});
+    db.doc("settings/catPriority").onSnapshot(d=>{ if(d.exists){ const x=d.data()||{}; if(Array.isArray(x.role)) PRI.role=x.role; if(Array.isArray(x.org)) PRI.org=x.org; } renderPri(); },()=>{});
+    db.doc("settings/prefs").onSnapshot(d=>{ if(d.exists&&+(d.data()||{}).weeklyGoal){ GOAL=+d.data().weeklyGoal; try{localStorage.setItem("goal",GOAL);}catch(_){} renderDash(); } },()=>{});
+    db.doc("settings/learned").onSnapshot(d=>{
+      if(!d.exists) return; const L=d.data(), box=$("#learned");
+      const li=a=>(a||[]).map(x=>`<li>${esc(x)}</li>`).join("");
+      box.innerHTML=`${L.summary?`<p>${esc(L.summary)}</p>`:""}
+        ${(L.likes||[]).length?`<div><b>מה עובד לך</b><ul>${li(L.likes)}</ul></div>`:""}
+        ${(L.dislikes||[]).length?`<div><b>מה לא מתאים</b><ul>${li(L.dislikes)}</ul></div>`:""}
+        ${(L.changes||[]).length?`<div><b>מה שיניתי בחיפוש</b><ul>${li(L.changes)}</ul></div>`:""}
+        ${L.updatedAt?`<p class="meta">עודכן: ${esc(L.updatedAt)}</p>`:""}`;
+    },()=>{});
+    db.doc("settings/lastRun").onSnapshot(d=>{
+      if(d.exists){ const r=d.data(); $("#lastRun").textContent=`סריקה אחרונה: ${r.at||""} · נמצאו ${r.found??0} משרות מתאימות מתוך ${r.scanned??0} שנבדקו`; $("#setLast").textContent=`${r.at||""} · ${r.found??0} משרות מתאימות מתוך ${r.scanned??0}`; $("#heroLast").innerHTML=`<b>עדכון אחרון:</b> ${esc(r.at||"")} · נמצאו ${esc(r.found??0)} משרות מתאימות`; }
+      else $("#lastRun").textContent="עוד לא בוצעה סריקה.";
+    },()=>{});
+  })();
+})();
+</script>
+</body>
+</html>

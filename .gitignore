@@ -1,0 +1,5 @@
+# personal data must never be committed
+*.json
+!package.json
+private/
+.env*
